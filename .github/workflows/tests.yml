@@ -19,7 +19,7 @@ jobs:
         if: ${{ matrix.os == 'Windows' }}
         # https://github.com/actions/checkout/issues/135
         run: git config --global core.autocrlf false
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*

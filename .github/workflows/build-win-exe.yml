@@ -1,0 +1,34 @@
+name: Generate a Windows .exe
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+jobs:
+  build-and-release:
+    runs-on: Windows-latest
+    steps:
+      - name: Disable autocrlf on Windows
+        # https://github.com/actions/checkout/issues/135
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+          # https://github.com/actions/setup-python#caching-packages-dependencies
+          cache: pip
+          # remember to keep in sync with Makefile:
+          cache-dependency-path: |
+            requirements.txt
+            dev/requirements.txt
+      - name: Install dependencies
+        run: make installdeps
+      - name: Tests and Coverage
+        run: make coverage
+      - name: Build exe
+        run: make exe
+      - uses: actions/upload-artifact@v5
+        with:
+          name: toa5-merge-win-exe
+          path: dist/toa5-merge.exe
