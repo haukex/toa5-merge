@@ -1,0 +1,18 @@
+{
+    "recommendations": [
+        "ms-vscode.makefile-tools",
+        "github.vscode-github-actions",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.mypy-type-checker",
+        "ms-python.pylint",
+        "ms-python.flake8",
+        "mads-hartmann.bash-ide-vscode",
+        "timonwong.shellcheck",
+        "ryanluker.vscode-coverage-gutters",
+        "oderwat.indent-rainbow",
+        "tamasfe.even-better-toml",
+        "streetsidesoftware.code-spell-checker",
+    ]
+}
+/* vim: set filetype=javascript ts=4 sw=4 expandtab : */

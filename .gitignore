@@ -1,0 +1,11 @@
+/.devcontainer/.devpod-internal/
+.venv*/
+__pycache__/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+/dist/
+/*.egg-info/
+/build/
+/*.spec

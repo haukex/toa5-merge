@@ -1,0 +1,48 @@
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
+name: Full Python Tests, Lint, and Coverage (all OSes)
+on:
+  push:
+    # only on commits, not on tags
+    branches:
+      - '**'
+  pull_request:
+jobs:
+  tests:
+    name: CPython on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [Ubuntu, Windows, macOS]
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+      - name: Disable autocrlf on Windows
+        if: ${{ matrix.os == 'Windows' }}
+        # https://github.com/actions/checkout/issues/135
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+      - name: Install pyright
+        run: npm install --global pyright
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+          # https://github.com/actions/setup-python#caching-packages-dependencies
+          cache: pip
+          # remember to keep in sync with Makefile:
+          cache-dependency-path: |
+            requirements.txt
+            dev/requirements.txt
+      - name: Install dependencies
+        run: make installdeps
+      - name: Run checks and lint
+        run: make smoke-checks ver-checks other-checks
+      - name: Run nix-checks and shellcheck on Linux
+        if: ${{ matrix.os == 'Ubuntu' }}
+        # Only run nix-checks on Ubuntu because it doesn't work on Windows and bash is too old on macOS.
+        # Only run shellcheck on Ubuntu because it's only installed there by default.
+        run: make nix-checks shellcheck
+      - name: Tests and Coverage
+        run: make coverage

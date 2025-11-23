@@ -1,0 +1,6 @@
+"TOA5","MyLogger","CR1000X","1234","CR1000X.Std.06.00","CPU:MyProgram.CR1X","3456","Three"
+"TIMESTAMP","RECORD","BattV_Min"
+"TS","RN","Volts"
+"","","Min"
+"2025-11-04 15:30:00",1,12.43
+"2025-11-04 15:30:00",1,blam

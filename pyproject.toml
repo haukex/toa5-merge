@@ -1,0 +1,290 @@
+
+[project]
+name = "toa5-merge"
+description = "TOA5 Merge Tool"
+version = "0.1.0"
+authors = [ { name="Hauke D", email="haukex@zero-g.net" } ]
+# https://spdx.org/licenses/
+license = "GPL-3.0-or-later"
+readme = "README.md"
+requires-python = "3.13"
+dynamic = ["dependencies"]
+# https://pypi.org/classifiers/
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    #"Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
+]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[project.scripts]
+toa5-merge = "toa5_merge.__main__:main"
+
+[project.urls]
+"Repository" = "https://github.com/haukex/toa5-merge"
+"Bug Tracker" = "https://github.com/haukex/toa5-merge/issues"
+
+
+# ##### ##### ##### ##### ##### Hauke's Python Type Checker / Linter Settings ##### ##### ##### ##### #####
+
+# Individual lines can be ignored with:
+# pylance:  ``# pyright: ignore [settingName]``
+# pylint:   ``# pylint: disable=setting-name``
+# flake8:   ``# noqa: CODE``
+# mypy:     ``# type: ignore[setting-name]``
+# coverage: ``# pragma: no cover``, ``# pragma: no branch``, and https://pypi.org/project/coverage-simple-excludes/
+
+# spell-checker: ignore setuptools pylint noqa mypy venv rcfile pyproject inlinevar overgeneral argparse booleaness
+
+# ##### ##### ##### ##### ##### https://github.com/microsoft/pyright/blob/main/docs/configuration.md ##### ##### ##### ##### #####
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportMissingTypeStubs = "none"
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownVariableType = "none"
+reportUnknownParameterType = "none"
+reportUnknownLambdaType = "none"
+reportMissingParameterType = "none"
+reportMissingTypeArgument = "none"
+reportGeneralTypeIssues = "none"  # too bad there isn't more fine-grained control than this
+reportUnnecessaryTypeIgnoreComment = "none"  # this flags too many comments; we use mypy's `warn_unused_ignores` instead
+reportImportCycles = "error"
+reportPropertyTypeMismatch = "warning"
+
+# ##### ##### ##### ##### ##### https://coverage.readthedocs.io/en/latest/config.html ##### ##### ##### ##### #####
+
+[tool.coverage.run]
+plugins = ["coverage_simple_excludes"]
+command_line = "-m unittest -v"
+relative_files = true
+branch = true
+omit = [
+    "**/.venv*/**",
+#    "somefile*",
+    ]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+# don't do the following; it'll prevent the report from being generated (see Makefile)
+#fail_under = 100
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+# ##### ##### ##### ##### ##### https://flake8.pycqa.org/en/stable/user/configuration.html ##### ##### ##### ##### #####
+
+[tool.flake8]
+extend-ignore = [
+    # NOTE the following is commented out because otherwise `coverage`'s reports aren't always correct.
+    #"E701", # Multiple statements on one line (colon)
+    "E262", # Inline comment should start with '# '
+    "E265", # Block comment should start with '# '
+    "E201", # Whitespace after '('
+    "E202", # Whitespace before ')'
+    "E203", # Whitespace before ':'
+    "E231", # Missing whitespace after ',', ';', or ':'
+    "E227", # Missing whitespace around bitwise or shift operator
+    "E251", # Unexpected spaces around keyword / parameter equals
+    "E252", # Missing whitespace around parameter equals
+    "E221", # Multiple spaces before operator
+    "E225", # Missing whitespace around operator
+    "E128", # Continuation line under-indented for visual indent
+    "E301", # Expected 1 blank line, found 0
+    "E302", # Expected 2 blank lines, found 0
+    "E305", # Expected 2 blank lines after end of function or class
+    "E306", # Expected 1 blank line before a nested definition
+    ]
+# NOTE: Keep in sync with pylint settings.
+max-line-length = 150
+
+# ##### ##### ##### ##### ##### https://mypy.readthedocs.io/en/stable/config_file.html ##### ##### ##### ##### #####
+
+[tool.mypy]
+enable_error_code = [ "ignore-without-code" ]
+ignore_missing_imports = true
+check_untyped_defs = true
+#disallow_incomplete_defs = true  # This would require a lot of `-> None` and such
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+# in regards to the following see also https://github.com/python/mypy/issues/8046
+local_partial_types = true
+implicit_reexport = false
+strict_equality = true
+warn_unused_configs = true
+
+# ##### ##### ##### ##### ##### https://pylint.readthedocs.io/en/latest/user_guide/configuration/all-options.html ##### ##### ##### #####
+# pylint --rcfile=pyproject.toml --generate-toml-config
+
+[tool.pylint.main]
+
+# Clear in-memory caches upon conclusion of linting. Useful if running pylint in
+# a server-like mode.
+clear-cache-post-run = true
+
+# Return non-zero exit code if any of these messages/categories are detected,
+# even if score is above --fail-under value. Syntax same as enable. Messages
+# specified are enabled, while categories only check already-enabled messages.
+fail-on = "I"  # informational, wouldn't normally fail
+
+# Specify a score threshold under which the program will exit with error.
+fail-under = 10.0
+
+# List of module names for which member attributes should not be checked (useful
+# for modules/projects where namespaces are manipulated during runtime and thus
+# existing member attributes cannot be deduced by static analysis). It supports
+# qualified module names, as well as Unix pattern matching.
+ignored-modules = ["ldap"]
+
+# Use multiple processes to speed up Pylint. Specifying 0 will auto-detect the
+# number of processors available to use, and will cap the count on Windows to
+# avoid hangs.
+jobs = 0
+
+[tool.pylint.basic]
+
+# Naming style matching correct class attribute names.
+class-attribute-naming-style = "snake_case"
+
+# Good variable names which should always be accepted, separated by a comma.
+good-names = ["i", "ex", "fh", "_"]
+
+# Include a hint for the correct naming format with invalid-name.
+include-naming-hint = true
+
+# Naming style matching correct inline iteration names.
+inlinevar-naming-style = "snake_case"
+
+[tool.pylint.design]
+
+# Maximum number of arguments for function / method.
+max-args = 20
+# too-many-positional-arguments default is 5
+max-positional-arguments = 4
+
+# Maximum number of attributes for a class (see R0902).
+max-attributes = 10
+
+# Maximum number of boolean expressions in an if statement (see R0916).
+max-bool-expr = 5
+
+# Maximum number of branch for function / method body.
+max-branches = 30
+
+# Maximum number of locals for function / method body.
+max-locals = 15
+
+# Maximum number of parents for a class (see R0901).
+max-parents = 7
+
+# Maximum number of public methods for a class (see R0904).
+max-public-methods = 20
+
+# Maximum number of return / yield for function / method body.
+max-returns = 6
+
+# Maximum number of statements in function / method body.
+max-statements = 70
+
+[tool.pylint.exceptions]
+
+# Exceptions that will emit a warning when caught.
+overgeneral-exceptions = ["builtins.BaseException"]
+
+[tool.pylint.format]
+
+# Expected format of line ending, e.g. empty (any line ending), LF or CRLF.
+expected-line-ending-format = "LF"
+
+# Regexp for a line that is allowed to be longer than the limit.
+ignore-long-lines = "^\\s*(# )?<?https?://\\S+>?$"
+
+# Maximum number of characters on a single line.
+# NOTE: Keep in sync with flake8 settings.
+max-line-length = 150
+
+# Maximum number of lines in a module.
+max-module-lines = 500
+
+# Allow the body of a class to be on the same line as the declaration if body
+# contains single statement.
+single-line-class-stmt = true
+
+# Allow the body of an if to be on the same line as the test if there is no else.
+# NOTE the following is now `false` because otherwise `coverage`'s reports aren't always correct.
+single-line-if-stmt = false
+
+[tool.pylint.imports]
+
+# Allow explicit reexports by alias from a package __init__.
+allow-reexport-from-package = true
+
+# Allow wildcard imports from modules that define __all__.
+allow-wildcard-with-all = true
+
+[tool.pylint."messages control"]
+
+# Disable the message, report, category or checker with the given id(s). You can
+# either give multiple identifiers separated by comma (,) or put this option
+# multiple times (only on the command line, not in the configuration file where
+# it should appear only once). You can also use "--disable=all" to disable
+# everything first and then re-enable specific checks. For example, if you want
+# to run only the similarities checker, you can use "--disable=all
+# --enable=similarities". If you want to run only the classes checker, but have
+# no Warning level messages displayed, use "--disable=all --enable=classes
+# --disable=W".
+disable = [
+    "locally-disabled",
+    "file-ignored",
+    "suppressed-message",
+    "missing-module-docstring",
+    "missing-function-docstring",
+    "missing-class-docstring",
+    "too-few-public-methods",
+    # NOTE the following is commented out because otherwise `coverage`'s reports aren't always correct.
+    #"multiple-statements",
+    "fixme"]
+
+# Enable the message, report, category or checker with the given id(s). You can
+# either give multiple identifier separated by comma (,) or put this option
+# multiple time (only on the command line, not in the configuration file where it
+# should appear only once). See also the "--disable" option for examples.
+enable = [
+    "raw-checker-failed",
+    "bad-inline-option",
+    "useless-suppression",
+    "deprecated-pragma",
+    "use-symbolic-message-instead",
+    "use-implicit-booleaness-not-comparison-to-string",
+    "use-implicit-booleaness-not-comparison-to-zero",
+    ]
+
+[tool.pylint.refactoring]
+
+# Maximum number of nested blocks for function / method body
+max-nested-blocks = 5
+
+# Complete name of functions that never returns. When checking for inconsistent-
+# return-statements if a never returning function is called then it will be
+# considered as an explicit return statement and no message will be printed.
+never-returning-functions = ["sys.exit", "argparse.parse_error", "argparse.exit"]
+
+[tool.pylint.similarities]
+
+# Minimum lines number of a similarity.
+min-similarity-lines = 4
+
+[tool.pylint.variables]
+
+# A regular expression matching the name of dummy variables (i.e. expected to not
+# be used).
+dummy-variables-rgx = "_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)"
+
+# Argument names that match this expression will be ignored.
+ignored-argument-names = "_.*"

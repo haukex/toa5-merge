@@ -1,0 +1,6 @@
+"TOA5","MyLogger","CR1000X","1234","CR1000X.Std.06.00","CPU:MyProgram.CR1X","3458","Other"
+"RECORD","BattV_Min"
+"RN","Volts"
+"","Min"
+100,12.5
+101,12.4
