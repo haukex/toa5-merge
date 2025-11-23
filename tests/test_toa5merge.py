@@ -218,10 +218,9 @@ class TestToa5Merge(unittest.TestCase):
                 uut.merge_and_out(uut.MergeOptions(database=dbf, max_lsdelta=1))
             self.assertTrue( str(ecm.exception).startswith(
                 'Found a row with the same timestamp but different values (max_lsdelta=1):\n'
-                "key='2025-11-04 15:30:00' is shared by:\n"
-                '''    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols1.dat"']\n'''
-                '''    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols2.dat"']\n''' ),
-                str(ecm.exception) )
+                "key='2025-11-04 15:30:00' is shared by:\n" ), str(ecm.exception) )
+            self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols1.dat"']\n''', str(ecm.exception) )
+            self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols2.dat"']\n''', str(ecm.exception) )
 
     def test_merge_multi_head(self):
         with TemporaryDirectory() as td:
