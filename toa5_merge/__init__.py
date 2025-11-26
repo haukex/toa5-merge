@@ -144,6 +144,7 @@ def _init_db(con :sqlite3.Connection):
         json_row TEXT NOT NULL,    -- parsed CSV row as JSON
         key TEXT NOT NULL,         -- just the first column in the row (timestamp)
         is_dupe BOOLEAN NOT NULL DEFAULT FALSE,  -- results of duplicate analysis (is actually INTEGER in SQLite)
+        -- REMEMBER that two raw_rows may *look* the same, but actually be different if they have different headers.
         UNIQUE (hid, raw_row)
     )'''))
     logger.debug('Database initialized')
@@ -210,6 +211,8 @@ def _load_file(ctx :Context, fi :FileInfo, handle :Iterable[str]) -> int:  # pyl
         ctx.hdr[hid] = header
     # ### Save File
     with ctx.con:
+        #TODO: If an error (or Ctrl-C) happens while loading the file, we might want to roll back this INSERT into files, to unmark the file as "seen"
+        # (or, could also set size and mtime to NULL here and wait with setting those until below, since they're part of the "seen" test)
         fid = one(ctx.con.execute('''
             INSERT INTO files (filename,size,mtime) VALUES (?,?,?)
             ON CONFLICT (filename) DO UPDATE SET size=excluded.size, mtime=excluded.mtime
