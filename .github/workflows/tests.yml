@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: make installdeps
       - name: Run checks and lint
-        run: make smoke-checks ver-checks other-checks
+        run: make smoke-checks ver-checks
       - name: Run nix-checks and shellcheck on Linux
         if: ${{ matrix.os == 'Ubuntu' }}
         # Only run nix-checks on Ubuntu because it doesn't work on Windows and bash is too old on macOS.
@@ -46,3 +46,4 @@ jobs:
         run: make nix-checks shellcheck
       - name: Tests and Coverage
         run: make coverage
+# spell-checker: ignore shellcheck installdeps

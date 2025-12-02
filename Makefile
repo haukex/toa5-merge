@@ -11,9 +11,9 @@ perm_checks = ./* .gitignore .vscode .github
 # The user can change the following on the command line:
 PYTHON3BIN = python
 
-.PHONY: help tasklist installdeps test build-check
-.PHONY: smoke-checks nix-checks shellcheck ver-checks other-checks coverage unittest
-test:   smoke-checks nix-checks shellcheck ver-checks other-checks coverage  ## Run all tests
+.PHONY: help tasklist installdeps test build-check outdated
+.PHONY: smoke-checks nix-checks shellcheck ver-checks coverage unittest
+test:   smoke-checks nix-checks shellcheck ver-checks coverage  ## Run all tests
 # Reminder: If the `test` target changes, make the appropriate changes to .github/workflows/tests.yml
 
 # spell-checker: ignore txts tasklist installdeps shellcheck FSTYPE MJSON OSTYPE devpod euxo pythonpath rcfile sdist
@@ -41,11 +41,18 @@ build-check: smoke-checks
 	echo "$${dist_files[@]}"
 
 tasklist:	## List open tasks.
-	@grep --color=auto \
+	@set -uo pipefail
+	command grep --color=auto \
 		--exclude-dir=.git --exclude-dir=__pycache__ --exclude-dir=.ipynb_checkpoints --exclude-dir='.venv*' \
 		--exclude-dir='.*cache' --exclude-dir=node_modules --exclude='LICENSE*' --exclude='.*.swp' \
 		-Eri '\bto.?do\b'
-	true  # ignore nonzero exit code from grep
+	set -e
+	for gh_proj in $$( git remote -v | perl -wM5.014 -ne 'say $$1 while m{(?:\s|^)https?://(?:www\.)?github\.com/([^/\s]+/[^/\s]+)\.git(?:\s|$$)}ig' | sort -u ); do
+		gh_count="$$(curl -sL https://api.github.com/repos/"$$gh_proj" | jq .open_issues_count)"
+		if [ -n "$$gh_count" ] && [ "$$gh_count" != "0" ] && [ "$$gh_count" != "null" ]; then
+			echo "There are $$gh_count open issues on GitHub $$gh_proj"
+		fi
+	done
 
 installdeps:  ## Install project dependencies
 	@set -euxo pipefail
@@ -95,10 +102,10 @@ ver-checks:  ## Checks that depend on the Python version
 	$(PYTHON3BIN) -m flake8 --toml-config=pyproject.toml $(py_code_locs)
 	$(PYTHON3BIN) -m pylint --rcfile=pyproject.toml --recursive=y $(py_code_locs)
 
-other-checks:  ## Checks not depending on the Python version
-	@set -euxo pipefail
+outdated:  ## Check the dependency versions
+	@set -euo pipefail
 	# note the following is on one line b/c GitHub macOS Action Runners are running bash 3.2 and the multiline version didn't work there...
-	for REQ in $(requirement_txts); do $(PYTHON3BIN) -m pur --skip-gt --dry-run-changed --nonzero-exit-code -r "$$REQ"; done
+	for REQ in $(requirement_txts); do $(PYTHON3BIN) -m pur --dry-run-changed -r "$$REQ"; done
 
 unittest:  ## Run unit tests
 	$(PYTHON3BIN) -X dev -X warn_default_encoding -W error -m unittest -v
