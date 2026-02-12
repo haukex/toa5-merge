@@ -6,7 +6,7 @@ Command-Line Interface for :mod:`toa5_merge`
 Author, Copyright, and License
 ------------------------------
 
-Copyright (c) 2025 Hauke Dämpfling (haukex@zero-g.net)
+Copyright (c) 2025-2026 Hauke Dämpfling (haukex@zero-g.net)
 at the Leibniz Institute of Freshwater Ecology and Inland Fisheries (IGB),
 Berlin, Germany, https://www.igb-berlin.de/
 
