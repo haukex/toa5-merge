@@ -42,10 +42,10 @@ def _arg_parser():
     subparsers = parser.add_subparsers(dest='cmd', required=True, help='"toa5_merge db load/merge -h" for help')
 
     parser_load = subparsers.add_parser('load', help='Load TOA5 files into database')
-    parser_load.add_argument('--station-name', help="Skip files with this TOA5 station name")
-    parser_load.add_argument('--table-name', help="Skip files with this TOA5 table name")
-    parser_load.add_argument('--program-sig', help="Skip files with this TOA5 program signature")
-    parser_load.add_argument('--logger-serial', help="Skip files with this TOA5 logger serial number")
+    parser_load.add_argument('--station-name', help="Skip files that don't have this TOA5 station name")
+    parser_load.add_argument('--table-name', help="Skip files that don't have this TOA5 table name")
+    parser_load.add_argument('--program-sig', help="Skip files that don't have this TOA5 program signature")
+    parser_load.add_argument('--logger-serial', help="Skip files that don't have this TOA5 logger serial number")
     parser_load.add_argument('--ignore-size', help="Ignore errors in files that are multiples of this size (default: 0=off)", type=int, default=0)
     parser_load.add_argument('--skip-seen', help="Skip files that are already in the database "
                              "(same relative name, size, and mtime; physical files only, not inside archives)",
