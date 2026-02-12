@@ -41,9 +41,12 @@ PATH = Path(__file__).parent/'toa5'
 class TestToa5Merge(unittest.TestCase):
 
     def _check_basic_load_logs(self, lcm_output :list[str]):
+        # Data_bad1.dat.gz: Headers end within quoted field on second line (also compressed for code coverage)
         one( s for s in lcm_output if re.match(r'^WARNING:toa5-merge:Skipping\b.+\bData_bad1\.dat\b.+due to\b.+\bToa5Error\b', s) )
+        # Data_bad2.dat: Header ok, second data row ends within quoted field
         one( s for s in lcm_output if
             re.match(r'^WARNING:toa5-merge:Stopped parsing\b.+\bData_bad2\.dat\b.+\bat row 5\b.+due to\b.+\b_?csv\.Error\b', s) )
+        # Data_bad3.dat: Header ok, second data row ends after timestamp, so column count mismatch
         one( s for s in lcm_output if
             re.match(r'^WARNING:toa5-merge:Skipping bad row 6 in\b.+\bData_bad3\.dat\b.+\bdue to column count mismatch\b', s) )
         self.assertGreater( sum( 1 for s in lcm_output if re.match(r'DEBUG:toa5-merge:Skipping\b.+\bdue to filter$', s) ), 8 )
@@ -110,6 +113,7 @@ class TestToa5Merge(unittest.TestCase):
             self.assertEqual(got_r, exp_r)
 
     def test_basic(self):
+        # Data[1-4].dat: normal data files (Data2.dat has an additional column)
         with TemporaryDirectory() as td:
             dbf = Path(td)/'x.sqlite3'
 
@@ -198,6 +202,10 @@ class TestToa5Merge(unittest.TestCase):
         one( s for s in lcm.output if s == 'INFO:toa5-merge:Loaded 9996 rows from [] so far...' )
 
     def test_merge_errors(self):
+        # One: Same timestamps, but second file has an additional column, which means the values from that column don't match
+        # Two: Same timestamp but values outside of lsdelta
+        # Three: Same timestamp but one of the values isn't a number so lsdelta fails
+        # Four: No common super header that includes all columns
         for tbl in 'One', 'Two', 'Three', 'Four':
             with TemporaryDirectory() as td:
                 dbf = Path(td)/'x.sqlite3'
@@ -223,6 +231,8 @@ class TestToa5Merge(unittest.TestCase):
             self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols2.dat"']\n''', str(ecm.exception) )
 
     def test_merge_multi_head(self):
+        # Test for files that are basically identical except for some special cases (e.g. scientific notation)
+        # and where the merge results may be different based on the order in which they are merged.
         with TemporaryDirectory() as td:
             dbf = Path(td)/'x.sqlite3'
             with self.assertLogs(level=logging.DEBUG):

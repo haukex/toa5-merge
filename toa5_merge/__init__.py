@@ -289,6 +289,7 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
             err_msg = ( f"Found a row with the same timestamp but different values (max_lsdelta={ctx.opt.max_lsdelta}):\n"
                 f"key={ts_key!r} is shared by:\n" + '\n'.join( f"    row={r.raw_row!r} in files {r.files!r}" for r in rows ) )
             if not ctx.opt.max_lsdelta:
+                #TODO: This fails on files that have the same headers *except* that the environment line is different
                 raise MergeError(err_msg + '  max_lsdelta not set, so I expected them to be identical')
             # user specified max_lsdelta, so compare the rows using that
             r0 = rows[0]
