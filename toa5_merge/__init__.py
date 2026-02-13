@@ -211,12 +211,12 @@ def _load_file(ctx :Context, fi :FileInfo, handle :Iterable[str]) -> int:  # pyl
         ctx.hdr[hid] = header
     # ### Save File
     with ctx.con:
-        #TODO: If an error (or Ctrl-C) happens while loading the file, we might want to roll back this INSERT into files, to unmark the file as "seen"
-        # (or, could also set size and mtime to NULL here and wait with setting those until below, since they're part of the "seen" test)
+        # The file size is part of the "seen" check, and it's better to not mark files that have an error as "seen" (the
+        # error could e.g. be a Ctrl-C during processing). So, we initially set the file size to 0, and update it below.
         fid = one(ctx.con.execute('''
             INSERT INTO files (filename,size,mtime) VALUES (?,?,?)
             ON CONFLICT (filename) DO UPDATE SET size=excluded.size, mtime=excluded.mtime
-            RETURNING id  ''', (fi.json_fn(), fi.size, fi.mtime)))[0]
+            RETURNING id  ''', (fi.json_fn(), 0, fi.mtime)))[0]
     assert isinstance(fid, int)
     # ### Save Rows
     ri :int = toa5.HEADER_ROWS+1  # init early for use in error handler below
@@ -237,6 +237,7 @@ def _load_file(ctx :Context, fi :FileInfo, handle :Iterable[str]) -> int:  # pyl
             if not ri % 10000:  # batch commits for efficiency
                 ctx.con.commit()
                 logger.info('Loaded %d rows from %s so far...', ri-toa5.HEADER_ROWS, fi.json_fn())
+        ctx.con.execute('UPDATE files SET size=? WHERE id=?', (fi.size, fid))
     except csv.Error as ex:
         logger.log(logging.DEBUG if ctx.opt.ignore_size and fi.size and not fi.size % ctx.opt.ignore_size else logging.WARNING,
             'Stopped parsing %s%s at row %d due to %s', fi.json_fn(), '' if fi.size is None else f" (size={fi.size})", ri, ex_repr(ex))

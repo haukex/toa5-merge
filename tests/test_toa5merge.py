@@ -72,7 +72,8 @@ class TestToa5Merge(unittest.TestCase):
                 '"TIMESTAMP","RECORD","BattV_Min"\n'  '"TS","RN","Volts"\n'  '"","","Min"' ]
             got_h = [ r[0] for r in con.execute('SELECT header FROM headers ORDER BY header') ]
             self.assertEqual(got_h, exp_h)
-            exp_f = [ (json.dumps(f.name), f.stat().st_size, int(f.stat().st_mtime)) for f in
+            exp_f = [
+                (json.dumps(f.name), 0 if f.name=='Data_bad2.dat' else f.stat().st_size, int(f.stat().st_mtime)) for f in
                 (PATH/'Data1.dat', PATH/'Data2.dat', PATH/'Data3.dat', PATH/'Data4.dat',
                  PATH/'Data_bad1.dat.gz', PATH/'Data_bad2.dat', PATH/'Data_bad3.dat') ]
             got_f = con.execute('SELECT filename, size, mtime FROM files ORDER BY filename').fetchall()
@@ -135,7 +136,7 @@ class TestToa5Merge(unittest.TestCase):
                     con.execute(''' DELETE FROM files WHERE filename='"Data_bad1.dat.gz"' ''')
             with self.assertLogs(level=logging.DEBUG) as lcm:
                 uut.load_files(uut.LoadOptions(database=dbf, paths=[PATH], table_name='Data', skip_seen=True))
-            self.assertEqual( len([ s for s in lcm.output if 'already in DB' in s ]), 6 )
+            self.assertEqual( len([ s for s in lcm.output if 'already in DB' in s ]), 5 )
             self._check_db(dbf, dupes_checked=False)
 
             # merge basic
