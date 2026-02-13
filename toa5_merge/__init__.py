@@ -89,7 +89,7 @@ class Context(NamedTuple):
 TS_COL = toa5.ColumnHeader(name='TIMESTAMP', unit='TS', prc='')
 RN_COL = toa5.ColumnHeader(name='RECORD', unit='RN', prc='')
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION :Final[int] = 1
 
 def _load_db(con :sqlite3.Connection):
     con.execute('PRAGMA foreign_keys=ON')  # important for our design
@@ -289,7 +289,6 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
             err_msg = ( f"Found a row with the same timestamp but different values (max_lsdelta={ctx.opt.max_lsdelta}):\n"
                 f"key={ts_key!r} is shared by:\n" + '\n'.join( f"    row={r.raw_row!r} in files {r.files!r}" for r in rows ) )
             if not ctx.opt.max_lsdelta:
-                #TODO: This fails on files that have the same headers *except* that the environment line is different
                 raise MergeError(err_msg + '  max_lsdelta not set, so I expected them to be identical')
             # user specified max_lsdelta, so compare the rows using that
             r0 = rows[0]
@@ -334,7 +333,7 @@ def _prepare_header_merge(ctx :Context) -> HeaderMergeResult:
     super_hdr_ids = sorted( hi for hi,hv in ctx.hdr.items() if frozenset(hv.toa5.columns)==super_hdr_cols )
     assert super_hdr_ids, super_hdr_ids
     super_header = ctx.hdr[super_hdr_ids[-1]]  # pick the last one (this is an arbitrary choice)
-    # provide some information ot user
+    # provide some information to user
     if len(super_hdr_ids)>1:
         logger.info('Found more than one header that includes all %d columns, arbitrarily using the last one:\n%s',
             len(super_header.toa5.columns), '\n'.join( ctx.hdr[hid].raw[0].strip() for hid in super_hdr_ids ))

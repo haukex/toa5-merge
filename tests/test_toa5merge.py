@@ -231,8 +231,9 @@ class TestToa5Merge(unittest.TestCase):
             self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols2.dat"']\n''', str(ecm.exception) )
 
     def test_merge_multi_head(self):
-        # Test for files that are basically identical except for some special cases (e.g. scientific notation)
+        # Test for files that are numerically identical but the strings are not (e.g. scientific notation)
         # and where the merge results may be different based on the order in which they are merged.
+        # (I consider this acceptable because such cases should be rare.)
         with TemporaryDirectory() as td:
             dbf = Path(td)/'x.sqlite3'
             with self.assertLogs(level=logging.DEBUG):
@@ -246,3 +247,16 @@ class TestToa5Merge(unittest.TestCase):
                 one( s for s in lcm.output if
                     re.match(r'\AINFO:toa5-merge:Found more than one header that includes all 3 columns, arbitrarily using the last one:$',s,re.M) )
                 one( s for s in lcm.output if re.match(r'\AINFO:toa5-merge:Marked 3 of \d+ total rows as duplicates \(1 with an lsdelta\)\Z', s) )
+
+    @unittest.expectedFailure  #TODO: GH Issue #1
+    def test_diff_env_lines(self):
+        # Same[12].dat: Files that are identical *except* for the environment line
+        # The same rows with the same column headers should be considered the same.
+        with TemporaryDirectory() as td:
+            dbf = Path(td)/'x.sqlite3'
+            with self.assertLogs(level=logging.DEBUG):
+                uut.load_files(uut.LoadOptions(database=dbf, paths=[PATH], table_name='Same'))
+            with redirect_stdout(io.StringIO()) as out, self.assertLogs(level=logging.DEBUG):
+                uut.merge_and_out(uut.MergeOptions(database=dbf))
+            self.assertIn( out.getvalue().replace('\r\n','\n').replace('\r','\n').rstrip('\n'),  # pragma: no cover
+                [ (PATH/f).read_text(encoding='ASCII').rstrip('\n') for f in ('Same1.dat','Same2.dat') ] )
