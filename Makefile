@@ -12,23 +12,26 @@ perm_checks = ./* .gitignore .vscode .github
 PYTHON3BIN = python
 
 .PHONY: help tasklist installdeps test build-check outdated
-.PHONY: smoke-checks nix-checks shellcheck ver-checks coverage unittest
+.PHONY: smoke-checks nix-checks shellcheck ver-checks coverage unittest clean
 test:   smoke-checks nix-checks shellcheck ver-checks coverage  ## Run all tests
 # Reminder: If the `test` target changes, make the appropriate changes to .github/workflows/tests.yml
 
 # spell-checker: ignore txts tasklist installdeps shellcheck FSTYPE MJSON OSTYPE devpod euxo pythonpath rcfile sdist
 # spell-checker: ignore igbpyutils ipynb msys mypy noheadings notruncate pipefail pycache pylint pyproject venv vfat
-# spell-checker: ignore pyinstaller
 
 SHELL = /bin/bash
 .ONESHELL:  # each recipe is executed as a single script
+
+clean:
+	@set -uxo pipefail
+	git clean -dxf -e '.venv*'
 
 .PHONY: exe
 exe: dist/toa5-merge.exe
 dist/toa5-merge.exe: toa5_merge/**.py
 	@set -euxo pipefail
 	# https://pyinstaller.org/
-	pyinstaller --onefile --console --name toa5-merge.exe toa5_merge/__main__.py
+	$(PYTHON3BIN) -m PyInstaller --onefile --console --name toa5-merge.exe toa5_merge/__main__.py
 
 build-check: smoke-checks
 	@set -euxo pipefail

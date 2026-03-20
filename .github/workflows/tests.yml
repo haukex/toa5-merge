@@ -28,7 +28,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: 3.13
+          python-version: 3.14
           # https://github.com/actions/setup-python#caching-packages-dependencies
           cache: pip
           # remember to keep in sync with Makefile:

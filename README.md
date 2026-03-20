@@ -6,12 +6,12 @@ Command-line tool to merge multiple TOA5 files, possibly with differing columns,
 Building
 --------
 
-Requirements: Python 3.13, and
+Requirements: Python 3.14, and
 the following instructions assume a `bash` or compatible shell and GNU `make` being available.
 
 - Clone this repository, then change into its directory
-- `python3.13 -m venv .venv3.13` (adjust `python3.13` as necessary for your system)
-- `. .venv3.13/bin/activate` (on Windows, use `Scripts` instead of `bin`)
+- `python3.14 -m venv .venv3.14` (adjust `python3.14` as necessary for your system)
+- `. .venv3.14/bin/activate` (on Windows, use `Scripts` instead of `bin`)
 - `make installdeps`
 - If you want to run tests, run `make coverage`
 - To build an `.exe` on Windows, run `make exe`; builds into `dist` folder
