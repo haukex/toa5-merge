@@ -1,4 +1,5 @@
 {
+    // This file is based on https://github.com/haukex/my-py-template/blob/main/.vscode/extensions.json
     "recommendations": [
         "ms-vscode.makefile-tools",
         "github.vscode-github-actions",

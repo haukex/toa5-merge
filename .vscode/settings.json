@@ -1,4 +1,5 @@
 {
+    // This file is based on https://github.com/haukex/my-py-template/blob/main/.vscode/settings.json
     "files.eol": "\n",
     "files.trimTrailingWhitespace": true,
     "editor.rulers": [ 150 ],  // keep in sync with pyproject.toml
@@ -27,6 +28,7 @@
         "markdown"
     ],
     "cSpell.ignoreWords": [
+        "venv",
         "igbpyutils",
         "lsdelta",
         "unzipwalk"

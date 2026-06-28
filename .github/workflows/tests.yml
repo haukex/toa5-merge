@@ -1,4 +1,5 @@
 # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
+# This file is based on https://github.com/haukex/my-py-template/blob/main/.github/workflows/tests.yml
 name: Full Python Tests, Lint, and Coverage (all OSes)
 on:
   push:
