@@ -370,6 +370,26 @@ def _gen_raw_output(ctx :Context) -> Generator[str]:
             assert isinstance(raw_row, str)
             yield raw_row
 
+def _toa5_csv_field(field :str) -> str:
+    """Format a single field for TOA5 CSV output.
+
+    Campbell's TOA5 format quotes string fields (in particular the ``TIMESTAMP``, which contains a
+    space) while leaving numeric fields unquoted. Python's :class:`csv.writer` with the default
+    ``QUOTE_MINIMAL`` does not quote a field just because it contains a space, so the merged output
+    would not match the original files and e.g. Campbell's "View Pro" would not read the dates
+    correctly (GitHub issue #3). We therefore quote any field containing a space (or a character that
+    requires quoting for the CSV to remain valid), doubling embedded quotes, and leave everything else
+    (numbers, empty fields) unquoted so their exact text is preserved.
+    """
+    if field and any( c in field for c in ' ,"\r\n' ):
+        return '"' + field.replace('"', '""') + '"'
+    return field
+
+def _gen_csv_lines(ctx :Context) -> Generator[str]:
+    """Generate merged TOA5 data rows formatted like the original Campbell files (see :func:`_toa5_csv_field`)."""
+    for row in _gen_csv_output(ctx):
+        yield ','.join( _toa5_csv_field(field) for field in row )
+
 def _gen_csv_output(ctx :Context) -> Generator[Sequence[str]]:
     """Generate the new merged TOA5 file CSV data for output."""
     assert isinstance(ctx.opt, MergeOptions)
@@ -436,8 +456,10 @@ def _write_out(ctx :Context, hdr_merge :HeaderMergeResult):
             # we know the raw data was normalized to all \n's, and writelines shouldn't be adding any
             ofh.writelines( ln+'\r\n' for ln in _gen_raw_output(ctx) )
         else:
-            # TOA5 files have CRLF endings, so explicitly specify them here (even though CRLF is csv.writer's default)
-            csv.writer(ofh, lineterminator='\r\n', strict=True).writerows( _gen_csv_output(ctx) )
+            # TOA5 files quote string fields (e.g. the space-containing TIMESTAMP), which csv.writer's
+            # QUOTE_MINIMAL does not do, so format the rows to match the original files (GH #3).
+            # TOA5 files also have CRLF line endings.
+            ofh.writelines( ln+'\r\n' for ln in _gen_csv_lines(ctx) )
     if ctx.opt.out_file and ctx.opt.out_file!='-':
         logger.log(NOTICE, 'Wrote output to %s (%s)', ctx.opt.out_file, 'raw' if hdr_merge.same_cols else 'csv')
 

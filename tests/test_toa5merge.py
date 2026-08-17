@@ -249,6 +249,22 @@ class TestToa5Merge(unittest.TestCase):
                     re.match(r'\AINFO:toa5-merge:Found more than one header that includes all 3 columns, arbitrarily using the last one:$',s,re.M) )
                 one( s for s in lcm.output if re.match(r'\AINFO:toa5-merge:Marked 3 of \d+ total rows as duplicates \(1 with an lsdelta\)\Z', s) )
 
+    def test_csv_output_timestamp_quoting(self):
+        # GH #3: When merging files with differing columns, the data rows are generated via csv.writer,
+        # whose QUOTE_MINIMAL quoting does not quote the space-containing TIMESTAMP column. The original
+        # TOA5 files quote it, and e.g. Campbell's "View Pro" software won't read the dates unless it is.
+        with TemporaryDirectory() as td:
+            dbf = Path(td)/'x.sqlite3'
+            with self.assertLogs(level=logging.DEBUG):
+                uut.load_files(uut.LoadOptions(database=dbf, paths=[PATH], table_name='Data'))
+            with redirect_stdout(io.StringIO()) as out, self.assertLogs(level=logging.DEBUG):
+                uut.merge_and_out(uut.MergeOptions(database=dbf, max_lsdelta=1))
+            data_lines = out.getvalue().replace('\r\n', '\n').rstrip('\n').split('\n')[4:]  # skip the four header lines
+            self.assertTrue(data_lines)
+            for ln in data_lines:
+                # the TIMESTAMP (which contains a space) must be quoted, the numeric RECORD that follows must not be
+                self.assertRegex(ln, r'\A"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d",\d')
+
     @unittest.expectedFailure  #TODO: GH Issue #1
     def test_diff_env_lines(self):
         # Same[12].dat: Files that are identical *except* for the environment line
