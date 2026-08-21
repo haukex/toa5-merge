@@ -288,12 +288,15 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
                 assert isinstance(hid, int) and isinstance(rid, int) and isinstance(raw_row, str) and isinstance(j_row, list)
                 rows.append(DupeRow(rid=rid, hdr=ctx.hdr[hid], raw_row=raw_row, j_row=j_row, files=[ f[5] for f in rest ]))
             assert len(rows)>1, rows
+            r0 = rows[0]
+            # Environment lines don't change a row's meaning when its raw data and column headers are identical
+            if all( r.raw_row==r0.raw_row and r.hdr.toa5.columns==r0.hdr.toa5.columns for r in rows[1:] ):
+                continue
             err_msg = ( f"Found a row with the same timestamp but different values (max_lsdelta={ctx.opt.max_lsdelta}):\n"
                 f"key={ts_key!r} is shared by:\n" + '\n'.join( f"    row={r.raw_row!r} in files {r.files!r}" for r in rows ) )
             if not ctx.opt.max_lsdelta:
                 raise MergeError(err_msg + '  max_lsdelta not set, so I expected them to be identical')
             # user specified max_lsdelta, so compare the rows using that
-            r0 = rows[0]
             assert r0.hdr.col_map, r0.hdr
             r0c = [ '' if c is None else _maybe_dec(r0.j_row[c]) for c in r0.hdr.col_map ]
             for r1 in rows[1:]:

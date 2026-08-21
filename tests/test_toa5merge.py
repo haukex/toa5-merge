@@ -64,7 +64,7 @@ class TestToa5Merge(unittest.TestCase):
             '"TOA5","MyLogger","CR1000X","1234","CR1000X.Std.06.00","CPU:MyProgram.CR1X","3458","Data"')
         list(strictly_n(( s for s in lcm_output if re.match(r'\ADEBUG:toa5-merge:Column map for hid \d+: \[0, 1, 2, None\]\Z',s) ), 2 ))
         one( s for s in lcm_output if re.match(r'\ADEBUG:toa5-merge:Column map for hid \d+: \[0, 1, 2, 3\]\Z',s) )
-        one( s for s in lcm_output if re.match(r'\AINFO:toa5-merge:Marked 2 of \d+ total rows as duplicates \(1 with an lsdelta\)\Z', s) )
+        one( s for s in lcm_output if re.match(r'\AINFO:toa5-merge:Marked 1 of \d+ total rows as duplicates \(1 with an lsdelta\)\Z', s) )
 
     def _check_db(self, dbf :Filename, *, dupes_checked :bool):
         with closing(sqlite3.connect(dbf)) as con:
@@ -97,7 +97,6 @@ class TestToa5Merge(unittest.TestCase):
                 ( exp_f[2][0], exp_h[0], '"2025-11-04 15:40:00",3,13.761', '["2025-11-04 15:40:00","3","13.761"]', '2025-11-04 15:40:00',
                     1 if dupes_checked else 0 ),
                 ( exp_f[2][0], exp_h[0], '"2025-11-04 15:45:00",4,13.56',  '["2025-11-04 15:45:00","4","13.56"]',  '2025-11-04 15:45:00', 0 ),
-                # depending on the order that files are processed in, either the row above or the row below may end up being marked a dupe
                 ( exp_f[3][0], exp_h[2], '"2025-11-04 15:45:00",4,13.56', '["2025-11-04 15:45:00","4","13.56"]', '2025-11-04 15:45:00', 0 ),
                 ( exp_f[3][0], exp_h[2], '"2025-11-04 16:00:00",5,13.41', '["2025-11-04 16:00:00","5","13.41"]', '2025-11-04 16:00:00', 0 ),
                 ( exp_f[3][0], exp_h[2], '"2025-11-04 16:15:00",6,13.22', '["2025-11-04 16:15:00","6","13.22"]', '2025-11-04 16:15:00', 0 ),
@@ -113,10 +112,6 @@ class TestToa5Merge(unittest.TestCase):
                 JOIN  headers AS h   ON h.id = r.hid
                 ORDER BY f.filename, h.header, r.raw_row
             ''').fetchall()
-            if dupes_checked:
-                # see note in list above for why this is needed
-                i = 7 if got_r[7][5] else 8
-                exp_r[i] = exp_r[i][:-1] + (1,)
             self.assertEqual(got_r, exp_r)
 
     def test_basic(self):
@@ -263,9 +258,8 @@ class TestToa5Merge(unittest.TestCase):
                     [ (PATH/f).read_text(encoding='ASCII').rstrip('\n') for f in exp_f ] )
                 one( s for s in lcm.output if
                     re.match(r'\AINFO:toa5-merge:Found more than one header that includes all 3 columns, arbitrarily using the last one:$',s,re.M) )
-                one( s for s in lcm.output if re.match(r'\AINFO:toa5-merge:Marked 3 of \d+ total rows as duplicates \(1 with an lsdelta\)\Z', s) )
+                one( s for s in lcm.output if re.match(r'\AINFO:toa5-merge:Marked 2 of \d+ total rows as duplicates \(1 with an lsdelta\)\Z', s) )
 
-    @unittest.expectedFailure  #TODO: GH Issue #1
     def test_diff_env_lines(self):
         # Same[12].dat: Files that are identical *except* for the environment line
         # The same rows with the same column headers should be considered the same.
@@ -273,7 +267,8 @@ class TestToa5Merge(unittest.TestCase):
             dbf = Path(td)/'x.sqlite3'
             with self.assertLogs(level=logging.DEBUG):
                 uut.load_files(uut.LoadOptions(database=dbf, paths=[PATH], table_name='Same'))
-            with redirect_stdout(io.StringIO()) as out, self.assertLogs(level=logging.DEBUG):
+            with redirect_stdout(io.StringIO()) as out, self.assertLogs(level=logging.DEBUG) as lcm:
                 uut.merge_and_out(uut.MergeOptions(database=dbf))
-            self.assertIn( out.getvalue().replace('\r\n','\n').replace('\r','\n').rstrip('\n'),  # pragma: no cover
+            self.assertIn( out.getvalue().replace('\r\n','\n').replace('\r','\n').rstrip('\n'),
                 [ (PATH/f).read_text(encoding='ASCII').rstrip('\n') for f in ('Same1.dat','Same2.dat') ] )
+            one( s for s in lcm.output if s == 'INFO:toa5-merge:Marked 0 of 8 total rows as duplicates (0 with an lsdelta)' )

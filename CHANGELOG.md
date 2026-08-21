@@ -5,6 +5,7 @@ Changelog for toa5-merge
 ------------------------
 
 - CSV output customized so that generated files are closer to TOA5 "standard"
+- Identical rows with identical column headers are now recognized when their environment lines differ
 - Improved rollback behavior when reading a file is interrupted or fails
 - Correction CLI option help messages
 
