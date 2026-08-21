@@ -2,13 +2,13 @@
 # This file is based on https://github.com/haukex/my-py-template/blob/main/dev/requirements.txt
 igbpyutils == 1.0.0
 simple-perms == 1.0.0 ; sys_platform != 'win32'
-coverage[toml] == 7.14.3
+coverage[toml] == 7.15.4
 coverage-simple-excludes == 1.1.1
-pylint == 4.0.6
-mypy == 2.1.0
+pylint == 4.0.7
+mypy == 2.3.1
 flake8 == 7.3.0
 Flake8-pyproject == 1.2.4
 pur == 7.4.0
 # build == 1.5.0 ; sys_platform == 'linux'
-# twine == 6.2.0 ; sys_platform == 'linux'
-pyinstaller == 6.21.0
+# twine == 7.0.0 ; sys_platform == 'linux'
+pyinstaller == 6.22.2

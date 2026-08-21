@@ -29,6 +29,7 @@ import sqlite3
 import logging
 import unittest
 from pathlib import Path
+from typing import override
 from tempfile import TemporaryDirectory
 from datetime import datetime, timedelta
 from contextlib import redirect_stdout, closing
@@ -39,6 +40,10 @@ import toa5_merge as uut
 PATH = Path(__file__).parent/'toa5'
 
 class TestToa5Merge(unittest.TestCase):
+
+    @override
+    def setUp(self) -> None:
+        self.maxDiff = None  # pylint: disable=invalid-name
 
     def _check_basic_load_logs(self, lcm_output :list[str]):
         # Data_bad1.dat.gz: Headers end within quoted field on second line (also compressed for code coverage)
@@ -96,6 +101,7 @@ class TestToa5Merge(unittest.TestCase):
                 ( exp_f[3][0], exp_h[2], '"2025-11-04 15:45:00",4,13.56', '["2025-11-04 15:45:00","4","13.56"]', '2025-11-04 15:45:00', 0 ),
                 ( exp_f[3][0], exp_h[2], '"2025-11-04 16:00:00",5,13.41', '["2025-11-04 16:00:00","5","13.41"]', '2025-11-04 16:00:00', 0 ),
                 ( exp_f[3][0], exp_h[2], '"2025-11-04 16:15:00",6,13.22', '["2025-11-04 16:15:00","6","13.22"]', '2025-11-04 16:15:00', 0 ),
+                ( exp_f[3][0], exp_h[2], '"2025-11-04 16:30:00",7,"NAN"', '["2025-11-04 16:30:00","7","NAN"]', '2025-11-04 16:30:00', 0 ),
 
                 ( exp_f[6][0], exp_h[0], '"2025-11-04 15:30:00",1,13.83', '["2025-11-04 15:30:00","1","13.83"]', '2025-11-04 15:30:00', 0 ),
             ]
@@ -230,6 +236,16 @@ class TestToa5Merge(unittest.TestCase):
                 "key='2025-11-04 15:30:00' is shared by:\n" ), str(ecm.exception) )
             self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols1.dat"']\n''', str(ecm.exception) )
             self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols2.dat"']\n''', str(ecm.exception) )
+
+    def test_merge_csv_fail(self):
+        # Unsupported characters in CSV output
+        with TemporaryDirectory() as td:
+            dbf = Path(td)/'x.sqlite3'
+            with self.assertLogs(level=logging.DEBUG):
+                uut.load_files(uut.LoadOptions(database=dbf, paths=[PATH], table_name='CsvFail'))
+            with redirect_stdout(io.StringIO()), self.assertLogs(level=logging.DEBUG), self.assertRaises(ValueError) as ecm:
+                uut.merge_and_out(uut.MergeOptions(database=dbf))
+            self.assertTrue( str(ecm.exception).startswith( "unsupported characters in field='x\"y'" ), str(ecm.exception) )
 
     def test_merge_multi_head(self):
         # Test for files that are numerically identical but the strings are not (e.g. scientific notation)

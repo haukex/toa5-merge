@@ -1,5 +1,5 @@
 igbpyutils == 1.0.0
-unzipwalk[7z] == 1.8.1
+unzipwalk[7z] == 1.9.0
 lsdelta == 0.9.1
 PyTOA5 == 1.0.0
 more-itertools == 11.1.0

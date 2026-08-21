@@ -24,8 +24,7 @@ along with this program. If not, see https://www.gnu.org/licenses/
 """
 from collections import deque
 from collections.abc import Generator, Iterable, Hashable, Collection
-from itertools import tee, islice, combinations
-from graphlib import TopologicalSorter
+from itertools import tee, islice
 from typing import TypeVar
 import csv
 import _csv  # just for types
@@ -72,21 +71,6 @@ def dual_csv_reader(fh :Iterable[str], /, dialect :_DialectLike = "excel", **fmt
 
 _T = TypeVar('_T', bound=Hashable)
 def find_superset(col_sets :Collection[Collection[_T]]) -> frozenset[_T]|None:
-    fs = frozenset(map(frozenset, col_sets))
-    if not fs:
-        return None
-    if len(fs)<2:
-        return frozenset(next(iter(fs)))
-    graph :TopologicalSorter[frozenset[_T]] = TopologicalSorter()
-    for a, b in combinations(fs, 2):
-        if a>b:
-            graph.add(a,b)
-        elif b>a:
-            graph.add(b,a)
-        else:
-            graph.add(a)
-            graph.add(b)
-    order = list(graph.static_order())
-    assert fs==frozenset(order), fs-frozenset(order)
-    best = order[-1]
-    return best if all( best.issuperset(s) for s in fs ) else None
+    union = set().union(*col_sets)
+    superset = next((s for s in col_sets if s == union), None)
+    return None if superset is None else frozenset(superset)

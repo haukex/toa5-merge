@@ -74,8 +74,8 @@ smoke-checks:  ## Basic smoke tests
 nix-checks:  ## Checks that depend on a *NIX OS/FS
 	@set -euo pipefail
 	unreliable_perms="yes"
-	if [ "$$OSTYPE" == "msys" ]; then  # e.g. Git bash on Windows
-		echo "- Assuming unreliable permission bits because Windows"
+	if [[ "$$OSTYPE" =~ ^(msys|cygwin)$$ ]]; then  # e.g. Git bash on Windows
+		echo "- Assuming unreliable permission bits because OSTYPE=$$OSTYPE"
 		set -x
 	else
 		fstype="$$( findmnt --all --first --noheadings --list --output FSTYPE --notruncate --target . )"

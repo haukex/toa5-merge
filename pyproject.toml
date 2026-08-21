@@ -3,7 +3,7 @@
 [project]
 name = "toa5-merge"
 description = "TOA5 Merge Tool"
-version = "0.1.0"
+version = "0.2.0"
 authors = [ { name="Hauke D", email="haukex@zero-g.net" } ]
 # https://spdx.org/licenses/
 license = "GPL-3.0-or-later"
@@ -43,6 +43,7 @@ toa5-merge = "toa5_merge.__main__:main"
 
 [tool.pyright]
 typeCheckingMode = "strict"
+# for stricter type checking, comment out all of these (except reportUnnecessaryTypeIgnoreComment):
 reportMissingTypeStubs = "none"
 reportUnknownMemberType = "none"
 reportUnknownArgumentType = "none"
@@ -109,7 +110,10 @@ max-line-length = 150
 enable_error_code = [ "ignore-without-code" ]
 ignore_missing_imports = true
 check_untyped_defs = true
-#disallow_incomplete_defs = true  # This would require a lot of `-> None` and such
+# for stricter type checking, uncomment these three:
+# disallow_incomplete_defs = true  # These would require a lot of `-> None` and such, but have
+# disallow_untyped_defs = true     # the advantage of giving mypy more knowledge of types
+# disallow_any_generics = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_return_any = true

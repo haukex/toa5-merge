@@ -20,14 +20,14 @@ jobs:
         if: ${{ matrix.os == 'Windows' }}
         # https://github.com/actions/checkout/issues/135
         run: git config --global core.autocrlf false
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: lts/*
       - name: Install pyright
         run: npm install --global pyright
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.14
           # https://github.com/actions/setup-python#caching-packages-dependencies

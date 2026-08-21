@@ -95,6 +95,10 @@ class TestUtils(unittest.TestCase):
             {          5,6,7,8,9},
             {0,1,2,3,4,5,6,7,8,9},
         ]), {0,1,2,3,4,5,6,7,8,9} )
+        self.assertEqual( uut.find_superset([
+            {0,1,2,3,4          },
+            {0,1,2,3,4,5,6,7,8,9},
+        ]), {0,1,2,3,4,5,6,7,8,9} )
         self.assertIsNone( uut.find_superset([ {1}, {2} ]) )
         self.assertEqual( uut.find_superset([ {0,1}, {0} ]), {0,1} )
         self.assertEqual( uut.find_superset([ {0,1,2} ]), {0,1,2} )

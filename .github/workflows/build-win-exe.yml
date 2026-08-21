@@ -11,9 +11,9 @@ jobs:
       - name: Disable autocrlf on Windows
         # https://github.com/actions/checkout/issues/135
         run: git config --global core.autocrlf false
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: 3.14
           # https://github.com/actions/setup-python#caching-packages-dependencies
@@ -28,7 +28,7 @@ jobs:
         run: make coverage
       - name: Build exe
         run: make exe
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: toa5-merge-win-exe
           path: dist/toa5-merge.exe

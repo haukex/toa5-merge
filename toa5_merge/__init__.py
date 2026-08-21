@@ -25,6 +25,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/
 """
 import io
+import re
 import csv
 import json
 import os.path
@@ -36,8 +37,8 @@ from io import TextIOWrapper
 from contextlib import closing
 from operator import itemgetter
 from pathlib import PurePath, Path
-from itertools import islice, groupby
 from tempfile import TemporaryDirectory
+from itertools import islice, groupby, chain
 from typing import NamedTuple, Final, Literal
 from collections.abc import Iterable, Sequence, Generator
 from more_itertools import one, only, mark_ends
@@ -370,23 +371,41 @@ def _gen_raw_output(ctx :Context) -> Generator[str]:
             assert isinstance(raw_row, str)
             yield raw_row
 
-def _gen_csv_output(ctx :Context) -> Generator[Sequence[str]]:
+NUMERIC_RE = re.compile(r'\A(?:[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[Ee][+-]?[0-9]+)?|INF)|NAN)\Z')
+QUOTE_RE = re.compile(r'\A(?:[+-]?INF|NAN)\Z')
+
+def _gen_csv_output(ctx :Context) -> Generator[str]:
     """Generate the new merged TOA5 file CSV data for output."""
     assert isinstance(ctx.opt, MergeOptions)
     # Although running the output through a temp table to remove duplicates is somewhat complicated,
-    # it still seems like the safest way to deduplicate the remapped rows.
+    # it still seems like the safest way to deduplicate the remapped rows. The scan-then-write approach
+    # is also good for guessing the data types of the columns (which may not always be 100% accurate,
+    # for example, a string column containing only numbers will be detected as numeric here, but that
+    # should be rare enough that we can ignore it), which influences quoting.
+    is_numeric = [ True ] * one( { len(h.col_map) for h in ctx.hdr.values() } )
     opt :MergeOptions = ctx.opt  # just so it has a definite type in the following:
     def remapped_rows() -> Generator[tuple[str,str], None, None]:
         with closing(ctx.con.execute(f"SELECT key, hid, json_row FROM rows {'WHERE is_dupe=FALSE' if opt.drop_dupes else ''}")) as sel_cur:
             for key,hid,j_row in sel_cur:
                 j_row = json.loads(j_row)
                 assert isinstance(key, str) and isinstance(hid, int) and isinstance(j_row, list)
-                yield json.dumps([ '' if c is None else j_row[c] for c in ctx.hdr[hid].col_map ], separators=(',', ':')), key
+                r_row = [ None if c is None else j_row[c] for c in ctx.hdr[hid].col_map ]
+                for i, field in enumerate(r_row):
+                    if field is not None:
+                        assert isinstance(field, str)
+                        # As far as I can tell, this should never happen in normal Campbell data:
+                        if '"' in field or '\r' in field or '\n' in field:
+                            raise ValueError(f"unsupported characters in {field=}")
+                        if NUMERIC_RE.fullmatch(field) is None:
+                            is_numeric[i] = False
+                yield json.dumps(r_row, separators=(',', ':')), key
     with ctx.con:
         ctx.con.execute('CREATE TEMP TABLE csv_output ( j_row TEXT NOT NULL UNIQUE, key TEXT NOT NULL )')
         ctx.con.executemany('INSERT INTO csv_output (j_row,key) VALUES (?,?) ON CONFLICT DO NOTHING', remapped_rows())
         with closing(ctx.con.execute('SELECT key, j_row FROM csv_output ORDER BY key')) as sel_cur:
-            yield from map(json.loads, map(itemgetter(1), sel_cur) )
+            for _key,j_row in sel_cur:
+                yield ','.join( '' if c is None else c if is_numeric[i] and QUOTE_RE.fullmatch(c) is None else f'"{c}"'
+                                for i,c in enumerate(json.loads(j_row)) )
         ctx.con.execute('DROP TABLE csv_output')
 
 def _load_files(ctx :Context):
@@ -431,13 +450,8 @@ def _load_files(ctx :Context):
 def _write_out(ctx :Context, hdr_merge :HeaderMergeResult):
     assert isinstance(ctx.opt, MergeOptions)
     with open_out(ctx.opt.out_file, mode='x', encoding='UTF-8', newline='') as ofh:
-        ofh.writelines( ln+'\r\n' for ln in hdr_merge.super_header.raw )
-        if hdr_merge.same_cols:
-            # we know the raw data was normalized to all \n's, and writelines shouldn't be adding any
-            ofh.writelines( ln+'\r\n' for ln in _gen_raw_output(ctx) )
-        else:
-            # TOA5 files have CRLF endings, so explicitly specify them here (even though CRLF is csv.writer's default)
-            csv.writer(ofh, lineterminator='\r\n', strict=True).writerows( _gen_csv_output(ctx) )
+        for ln in chain(hdr_merge.super_header.raw, _gen_raw_output(ctx) if hdr_merge.same_cols else _gen_csv_output(ctx)):
+            print(ln, file=ofh, end='\r\n')  # explicitly use CRLF since that's what TOA5 files use, and do it here so it applies to STDOUT too
     if ctx.opt.out_file and ctx.opt.out_file!='-':
         logger.log(NOTICE, 'Wrote output to %s (%s)', ctx.opt.out_file, 'raw' if hdr_merge.same_cols else 'csv')
 
