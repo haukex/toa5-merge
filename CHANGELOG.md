@@ -1,8 +1,16 @@
 Changelog for toa5-merge
 ========================
 
-0.2.0 - *not yet released*
+0.3.0 - *not yet released*
 ------------------------
+
+- Data fields containing double quotes or line breaks are now rejected while loading
+- Reduced database size by parsing raw CSV rows on demand instead of storing a second JSON representation
+
+0.2.0 - Fri, Aug 21 2026
+------------------------
+
+`commit 576c892f755135bd85cf358ab25e9289f197e90e`
 
 - CSV output customized so that generated files are closer to TOA5 "standard"
 - Identical rows with identical column headers are now recognized when their environment lines differ

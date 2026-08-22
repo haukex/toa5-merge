@@ -90,7 +90,7 @@ class Context(NamedTuple):
 TS_COL = toa5.ColumnHeader(name='TIMESTAMP', unit='TS', prc='')
 RN_COL = toa5.ColumnHeader(name='RECORD', unit='RN', prc='')
 
-SCHEMA_VERSION :Final[int] = 1
+SCHEMA_VERSION :Final[int] = 2
 
 def _load_db(con :sqlite3.Connection):
     con.execute('PRAGMA foreign_keys=ON')  # important for our design
@@ -142,7 +142,6 @@ def _init_db(con :sqlite3.Connection):
         id INTEGER PRIMARY KEY,    -- SQLite rowid
         hid INTEGER NOT NULL REFERENCES headers(id) ON UPDATE CASCADE ON DELETE CASCADE,
         raw_row TEXT NOT NULL,     -- raw, original row text (newlines normalized)
-        json_row TEXT NOT NULL,    -- parsed CSV row as JSON
         key TEXT NOT NULL,         -- just the first column in the row (timestamp)
         is_dupe BOOLEAN NOT NULL DEFAULT FALSE,  -- results of duplicate analysis (is actually INTEGER in SQLite)
         -- REMEMBER that two raw_rows may *look* the same, but actually be different if they have different headers.
@@ -159,6 +158,18 @@ def _norm_nl(s :str) -> str:
     doing this is okay for multiline CSV fields.
     """
     return s.replace('\r\n','\n').replace('\r','\n').strip('\n')
+
+def _validate_row_fields(row :Sequence[str]):
+    """Reject field contents that aren't supported in TOA5 data rows."""
+    for field in row:
+        if any(c in field for c in '"\r\n'):
+            raise ValueError(f"unsupported characters in {field=}")
+
+def _parse_raw_row(raw_row :str) -> list[str]:
+    """Parse a normalized raw CSV row from the database."""
+    row = one(csv.reader([raw_row], strict=True))
+    _validate_row_fields(row)
+    return row
 
 class FileInfo(NamedTuple):
     """For use by :func:`_load_file`."""
@@ -227,10 +238,11 @@ def _load_file(ctx :Context, fi :FileInfo, handle :Iterable[str]) -> int:  # pyl
                 logger.log(logging.DEBUG if is_last and ctx.opt.ignore_size and fi.size and not fi.size % ctx.opt.ignore_size else logging.WARNING,
                     'Skipping bad row %d in %s%s due to column count mismatch', ri, fi.json_fn(), '' if fi.size is None else f" (size={fi.size})")
                 continue
+            _validate_row_fields(row)
             # INSERT implicitly opens transaction:
             row_ins = only(ctx.con.execute(
-                'INSERT INTO rows (hid, raw_row, json_row, key) VALUES (?,?,?,?) ON CONFLICT (hid,raw_row) DO NOTHING RETURNING id',
-                (hid, raw_row, json.dumps(row, separators=(',', ':')), row[0]) ))
+                'INSERT INTO rows (hid, raw_row, key) VALUES (?,?,?) ON CONFLICT (hid,raw_row) DO NOTHING RETURNING id',
+                (hid, raw_row, row[0]) ))
             rid = ( one(ctx.con.execute('SELECT id FROM rows WHERE hid=? AND raw_row=?', (hid, raw_row)))[0]
                 if row_ins is None else row_ins[0] )  # see note about this pattern above
             assert isinstance(rid, int)
@@ -251,7 +263,6 @@ class DupeRow(NamedTuple):
     rid :int
     hdr :Header
     raw_row :str
-    j_row :list
     files :list[str]
 
 class MergeError(RuntimeError):
@@ -265,7 +276,7 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
     assert isinstance(ctx.opt, MergeOptions)
     logger.debug('Now analyzing duplicates...')
     select = '''
-        SELECT r.key, r.hid, r.id, r.raw_row, r.json_row, f.filename  FROM rows AS r
+        SELECT r.key, r.hid, r.id, r.raw_row, f.filename  FROM rows AS r
         -- Note this only selects rows where there's more than one raw_row, which is why we additionally filter identical rows on output
         JOIN ( SELECT key FROM rows GROUP BY key HAVING COUNT(raw_row) > 1 ) AS d ON d.key = r.key
         JOIN row2file AS r2f ON r2f.rid = r.id
@@ -283,10 +294,9 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
                 raise RuntimeError(f"Shouldn't happen: key {ts_key} seen more than once")  # pragma: no cover
             seen_keys.add(ts_key)
             rows :list[DupeRow] = []
-            for (hid,rid,raw_row,j_row),rest in groupby(dup_key_rows, key=itemgetter(1,2,3,4)):
-                j_row = json.loads(j_row)
-                assert isinstance(hid, int) and isinstance(rid, int) and isinstance(raw_row, str) and isinstance(j_row, list)
-                rows.append(DupeRow(rid=rid, hdr=ctx.hdr[hid], raw_row=raw_row, j_row=j_row, files=[ f[5] for f in rest ]))
+            for (hid,rid,raw_row),rest in groupby(dup_key_rows, key=itemgetter(1,2,3)):
+                assert isinstance(hid, int) and isinstance(rid, int) and isinstance(raw_row, str)
+                rows.append(DupeRow(rid=rid, hdr=ctx.hdr[hid], raw_row=raw_row, files=[ f[4] for f in rest ]))
             assert len(rows)>1, rows
             r0 = rows[0]
             # Environment lines don't change a row's meaning when its raw data and column headers are identical
@@ -298,10 +308,12 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
                 raise MergeError(err_msg + '  max_lsdelta not set, so I expected them to be identical')
             # user specified max_lsdelta, so compare the rows using that
             assert r0.hdr.col_map, r0.hdr
-            r0c = [ '' if c is None else _maybe_dec(r0.j_row[c]) for c in r0.hdr.col_map ]
+            r0j = _parse_raw_row(r0.raw_row)
+            r0c = [ '' if c is None else _maybe_dec(r0j[c]) for c in r0.hdr.col_map ]
             for r1 in rows[1:]:
                 assert r1.hdr.col_map, r1.hdr
-                r1c = [ '' if c is None else _maybe_dec(r1.j_row[c]) for c in r1.hdr.col_map ]
+                r1j = _parse_raw_row(r1.raw_row)
+                r1c = [ '' if c is None else _maybe_dec(r1j[c]) for c in r1.hdr.col_map ]
                 had_lsdelta = False
                 for ci,(r0v,r1v) in enumerate(zip(r0c, r1c, strict=True), start=1):
                     if r0v != r1v:
@@ -388,17 +400,14 @@ def _gen_csv_output(ctx :Context) -> Generator[str]:
     is_numeric = [ True ] * one( { len(h.col_map) for h in ctx.hdr.values() } )
     opt :MergeOptions = ctx.opt  # just so it has a definite type in the following:
     def remapped_rows() -> Generator[tuple[str,str], None, None]:
-        with closing(ctx.con.execute(f"SELECT key, hid, json_row FROM rows {'WHERE is_dupe=FALSE' if opt.drop_dupes else ''}")) as sel_cur:
-            for key,hid,j_row in sel_cur:
-                j_row = json.loads(j_row)
-                assert isinstance(key, str) and isinstance(hid, int) and isinstance(j_row, list)
-                r_row = [ None if c is None else j_row[c] for c in ctx.hdr[hid].col_map ]
+        with closing(ctx.con.execute(f"SELECT key, hid, raw_row FROM rows {'WHERE is_dupe=FALSE' if opt.drop_dupes else ''}")) as sel_cur:
+            for key,hid,raw_row in sel_cur:
+                assert isinstance(key, str) and isinstance(hid, int) and isinstance(raw_row, str)
+                row = _parse_raw_row(raw_row)
+                r_row = [ None if c is None else row[c] for c in ctx.hdr[hid].col_map ]
                 for i, field in enumerate(r_row):
                     if field is not None:
                         assert isinstance(field, str)
-                        # As far as I can tell, this should never happen in normal Campbell data:
-                        if '"' in field or '\r' in field or '\n' in field:
-                            raise ValueError(f"unsupported characters in {field=}")
                         if NUMERIC_RE.fullmatch(field) is None:
                             is_numeric[i] = False
                 yield json.dumps(r_row, separators=(',', ':')), key

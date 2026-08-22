@@ -24,6 +24,7 @@ along with this program. If not, see https://www.gnu.org/licenses/
 """
 import io
 import re
+import csv
 import json
 import sqlite3
 import logging
@@ -68,6 +69,8 @@ class TestToa5Merge(unittest.TestCase):
 
     def _check_db(self, dbf :Filename, *, dupes_checked :bool):
         with closing(sqlite3.connect(dbf)) as con:
+            self.assertEqual(con.execute('PRAGMA user_version').fetchone()[0], uut.SCHEMA_VERSION)
+            self.assertEqual([ r[1] for r in con.execute('PRAGMA table_info(rows)') ], ['id','hid','raw_row','key','is_dupe'])
             exp_h = [
                 '"TOA5","MyLogger","CR1000X","1234","CR1000X.Std.06.00","CPU:MyProgram.CR1X","3456","Data"\n'
                 '"TIMESTAMP","RECORD","BattV_Min"\n'  '"TS","RN","Volts"\n'  '"","","Min"',
@@ -83,29 +86,26 @@ class TestToa5Merge(unittest.TestCase):
                  PATH/'Data_bad1.dat.gz', PATH/'Data_bad2.dat', PATH/'Data_bad3.dat') ]
             got_f = con.execute('SELECT filename, size, mtime FROM files ORDER BY filename').fetchall()
             self.assertEqual(got_f, exp_f)
-            exp_r :list[tuple[str,str,str,str,str,int]] = [
-                ( exp_f[0][0], exp_h[0], '"2025-11-04 15:30:00",1,13.83', '["2025-11-04 15:30:00","1","13.83"]', '2025-11-04 15:30:00', 0 ),
-                ( exp_f[0][0], exp_h[0], '"2025-11-04 15:40:00",3,13.76', '["2025-11-04 15:40:00","3","13.76"]', '2025-11-04 15:40:00', 0 ),
+            exp_r :list[tuple[str,str,str,str,int]] = [
+                ( exp_f[0][0], exp_h[0], '"2025-11-04 15:30:00",1,13.83', '2025-11-04 15:30:00', 0 ),
+                ( exp_f[0][0], exp_h[0], '"2025-11-04 15:40:00",3,13.76', '2025-11-04 15:40:00', 0 ),
 
-                ( exp_f[1][0], exp_h[1], '"2025-11-04 15:35:00",2,13.80,12.98', '["2025-11-04 15:35:00","2","13.80","12.98"]',
-                    '2025-11-04 15:35:00', 0 ),
-                ( exp_f[1][0], exp_h[1], '"2025-11-04 15:50:00",3,13.76,12.99', '["2025-11-04 15:50:00","3","13.76","12.99"]',
-                    '2025-11-04 15:50:00', 0 ),
+                ( exp_f[1][0], exp_h[1], '"2025-11-04 15:35:00",2,13.80,12.98', '2025-11-04 15:35:00', 0 ),
+                ( exp_f[1][0], exp_h[1], '"2025-11-04 15:50:00",3,13.76,12.99', '2025-11-04 15:50:00', 0 ),
 
-                ( exp_f[2][0], exp_h[0], '"2025-11-04 15:30:00",1,13.83',  '["2025-11-04 15:30:00","1","13.83"]',  '2025-11-04 15:30:00', 0 ),
-                ( exp_f[2][0], exp_h[0], '"2025-11-04 15:40:00",3,13.76',  '["2025-11-04 15:40:00","3","13.76"]',  '2025-11-04 15:40:00', 0 ),
-                ( exp_f[2][0], exp_h[0], '"2025-11-04 15:40:00",3,13.761', '["2025-11-04 15:40:00","3","13.761"]', '2025-11-04 15:40:00',
-                    1 if dupes_checked else 0 ),
-                ( exp_f[2][0], exp_h[0], '"2025-11-04 15:45:00",4,13.56',  '["2025-11-04 15:45:00","4","13.56"]',  '2025-11-04 15:45:00', 0 ),
-                ( exp_f[3][0], exp_h[2], '"2025-11-04 15:45:00",4,13.56', '["2025-11-04 15:45:00","4","13.56"]', '2025-11-04 15:45:00', 0 ),
-                ( exp_f[3][0], exp_h[2], '"2025-11-04 16:00:00",5,13.41', '["2025-11-04 16:00:00","5","13.41"]', '2025-11-04 16:00:00', 0 ),
-                ( exp_f[3][0], exp_h[2], '"2025-11-04 16:15:00",6,13.22', '["2025-11-04 16:15:00","6","13.22"]', '2025-11-04 16:15:00', 0 ),
-                ( exp_f[3][0], exp_h[2], '"2025-11-04 16:30:00",7,"NAN"', '["2025-11-04 16:30:00","7","NAN"]', '2025-11-04 16:30:00', 0 ),
+                ( exp_f[2][0], exp_h[0], '"2025-11-04 15:30:00",1,13.83',  '2025-11-04 15:30:00', 0 ),
+                ( exp_f[2][0], exp_h[0], '"2025-11-04 15:40:00",3,13.76',  '2025-11-04 15:40:00', 0 ),
+                ( exp_f[2][0], exp_h[0], '"2025-11-04 15:40:00",3,13.761', '2025-11-04 15:40:00', 1 if dupes_checked else 0 ),
+                ( exp_f[2][0], exp_h[0], '"2025-11-04 15:45:00",4,13.56',  '2025-11-04 15:45:00', 0 ),
+                ( exp_f[3][0], exp_h[2], '"2025-11-04 15:45:00",4,13.56', '2025-11-04 15:45:00', 0 ),
+                ( exp_f[3][0], exp_h[2], '"2025-11-04 16:00:00",5,13.41', '2025-11-04 16:00:00', 0 ),
+                ( exp_f[3][0], exp_h[2], '"2025-11-04 16:15:00",6,13.22', '2025-11-04 16:15:00', 0 ),
+                ( exp_f[3][0], exp_h[2], '"2025-11-04 16:30:00",7,"NAN"', '2025-11-04 16:30:00', 0 ),
 
-                ( exp_f[6][0], exp_h[0], '"2025-11-04 15:30:00",1,13.83', '["2025-11-04 15:30:00","1","13.83"]', '2025-11-04 15:30:00', 0 ),
+                ( exp_f[6][0], exp_h[0], '"2025-11-04 15:30:00",1,13.83', '2025-11-04 15:30:00', 0 ),
             ]
             got_r = con.execute('''
-                SELECT f.filename, h.header, r.raw_row, r.json_row, r.key, r.is_dupe
+                SELECT f.filename, h.header, r.raw_row, r.key, r.is_dupe
                 FROM     rows AS r
                 JOIN row2file AS r2f ON r.id = r2f.rid
                 JOIN    files AS f   ON r2f.fid = f.id
@@ -232,15 +232,20 @@ class TestToa5Merge(unittest.TestCase):
             self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols1.dat"']\n''', str(ecm.exception) )
             self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols2.dat"']\n''', str(ecm.exception) )
 
-    def test_merge_csv_fail(self):
-        # Unsupported characters in CSV output
-        with TemporaryDirectory() as td:
-            dbf = Path(td)/'x.sqlite3'
-            with self.assertLogs(level=logging.DEBUG):
-                uut.load_files(uut.LoadOptions(database=dbf, paths=[PATH], table_name='CsvFail'))
-            with redirect_stdout(io.StringIO()), self.assertLogs(level=logging.DEBUG), self.assertRaises(ValueError) as ecm:
-                uut.merge_and_out(uut.MergeOptions(database=dbf))
-            self.assertTrue( str(ecm.exception).startswith( "unsupported characters in field='x\"y'" ), str(ecm.exception) )
+    def test_load_csv_fail(self):
+        # Quotes and line breaks aren't supported within TOA5 fields.
+        for bad_field in ('x"y', 'x\ry', 'x\ny'):
+            with self.subTest(bad_field=bad_field), TemporaryDirectory() as td:
+                input_file = Path(td)/'input.dat'
+                with input_file.open('w', encoding='ASCII', newline='') as handle:
+                    csv.writer(handle, lineterminator='\r\n').writerows([
+                        ['TOA5','MyLogger','CR1000X','1234','CR1000X.Std.06.00','CPU:MyProgram.CR1X','3456','CsvFail'],
+                        ['TIMESTAMP','RECORD','BattV_Min'], ['TS','RN','Volts'], ['','','Min'],
+                        ['2025-11-04 15:30:00','1',bad_field],
+                    ])
+                with self.assertLogs(level=logging.DEBUG), self.assertRaises(ValueError) as ecm:
+                    uut.load_files(uut.LoadOptions(database=Path(td)/'x.sqlite3', paths=[input_file]))
+                self.assertTrue( str(ecm.exception).startswith('unsupported characters in field='), str(ecm.exception) )
 
     def test_merge_multi_head(self):
         # Test for files that are numerically identical but the strings are not (e.g. scientific notation)
