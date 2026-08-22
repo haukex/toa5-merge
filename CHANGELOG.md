@@ -1,7 +1,7 @@
 Changelog for toa5-merge
 ========================
 
-0.3.0 - *not yet released*
+0.3.0 - Sat, Aug 22 2026
 ------------------------
 
 - Data fields containing double quotes or line breaks are now rejected while loading

@@ -33,7 +33,7 @@ To get help:
 - `toa5-merge db merge --help`
 
 
-<!-- spell-checker: ignore venv installdeps -->
+<!-- spell-checker: ignore installdeps -->
 
 Author, Copyright, and License
 ------------------------------

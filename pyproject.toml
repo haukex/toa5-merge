@@ -3,7 +3,7 @@
 [project]
 name = "toa5-merge"
 description = "TOA5 Merge Tool"
-version = "0.2.0"
+version = "0.3.0"
 authors = [ { name="Hauke D", email="haukex@zero-g.net" } ]
 # https://spdx.org/licenses/
 license = "GPL-3.0-or-later"
