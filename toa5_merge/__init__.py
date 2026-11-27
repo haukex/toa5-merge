@@ -52,7 +52,7 @@ from toa5_merge.utils import dual_csv_reader, find_superset
 
 # spell-checker: ignore executemany
 
-def _init_logging_notice():
+def _init_logging_notice() -> Literal[25]:
     logging.addLevelName(25, 'NOTICE')
     return 25
 NOTICE :Final[Literal[25]] = _init_logging_notice()
@@ -94,7 +94,7 @@ RN_COL = toa5.ColumnHeader(name='RECORD', unit='RN', prc='')
 
 SCHEMA_VERSION :Final[int] = 2
 
-def _load_db(con :sqlite3.Connection):
+def _load_db(con :sqlite3.Connection) -> dict[int, Header]:
     con.execute('PRAGMA foreign_keys=ON')  # important for our design
     if one(con.execute('PRAGMA foreign_keys'))[0] != 1:  # double-check
         raise sqlite3.DatabaseError('failed to turn on foreign_keys')  # pragma: no cover
@@ -111,7 +111,7 @@ def _load_db(con :sqlite3.Connection):
     logger.debug('Existing database loaded')
     return hdr
 
-def _init_db(con :sqlite3.Connection):
+def _init_db(con :sqlite3.Connection) -> None:
     """Initialize the SQLite3 database."""
     con.execute('PRAGMA synchronous=OFF')  # since it's temporary, disable sync for speed
     con.execute('PRAGMA foreign_keys=ON')  # important for our design
@@ -161,7 +161,7 @@ def _norm_nl(s :str) -> str:
     """
     return s.replace('\r\n','\n').replace('\r','\n').strip('\n')
 
-def _validate_row_fields(row :Sequence[str]):
+def _validate_row_fields(row :Sequence[str]) -> None:
     """Reject field contents that aren't supported in TOA5 data rows."""
     for field in row:
         if any(c in field for c in '"\r\n'):
@@ -178,7 +178,7 @@ class FileInfo(NamedTuple):
     names :tuple[PurePath, ...]
     size :int|None
     mtime :int|None
-    def json_fn(self):
+    def json_fn(self) -> str:
         """A JSON string representation of the filename(s) for reporting to the user."""
         return json.dumps( self.names[0].as_posix() if len(self.names)==1 else [ name.as_posix() for name in self.names ], separators=(',', ':') )
 
@@ -270,10 +270,10 @@ class DupeRow(NamedTuple):
 class MergeError(RuntimeError):
     pass
 
-def _maybe_dec(n :str):
+def _maybe_dec(n :str) -> str:
     return format(Decimal(n), 'f') if 'e' in n or 'E' in n else n
 
-def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
+def _check_dupe_rows(ctx :Context) -> None:  # pylint: disable=too-many-locals
     """Analyze the database for duplicate rows and mark them."""
     assert isinstance(ctx.opt, MergeOptions)
     logger.debug('Now analyzing duplicates...')
@@ -431,17 +431,18 @@ def _gen_csv_output(ctx :Context) -> Generator[str]:
                                 for i,c in enumerate(json.loads(j_row)) )
         ctx.con.execute('DROP TABLE csv_output')
 
-def _load_files(ctx :Context):
+def _load_files(ctx :Context) -> None:
     assert isinstance(ctx.opt, LoadOptions)
     logger.debug('Now loading all files from %d path(s)...', len(ctx.opt.paths))
     f_cnt = 0
     row_cnt = 0
     common_parent = Path(os.path.commonpath(ctx.opt.paths))
-    def _matcher(names :Sequence[PurePath]) -> bool:
+    def _matcher(names :Sequence[str]) -> bool:
         if len(names)>1:  # only physical files, not in archives
             return True
-        st = Path(names[0]).stat()
-        json_fn = json.dumps(names[0].relative_to(common_parent).as_posix())  # same filename encoding as FileInfo.json_fn
+        path = Path(names[0])
+        st = path.stat()
+        json_fn = json.dumps(path.relative_to(common_parent).as_posix())  # same filename encoding as FileInfo.json_fn
         seen = only(ctx.con.execute('SELECT id FROM files WHERE filename=? AND size=? AND mtime=?',
             ( json_fn, st.st_size, int(st.st_mtime) ) ))
         if seen is None:
@@ -470,7 +471,7 @@ def _load_files(ctx :Context):
             logger.info('Loaded %d rows from %d files so far...', row_cnt, f_cnt)
     logger.info('Finished loading %d rows from %d files', row_cnt, f_cnt)
 
-def _write_out(ctx :Context, hdr_merge :HeaderMergeResult):
+def _write_out(ctx :Context, hdr_merge :HeaderMergeResult) -> None:
     assert isinstance(ctx.opt, MergeOptions)
     with open_out(ctx.opt.out_file, mode='x', encoding='UTF-8', newline='') as ofh:
         for ln in chain(hdr_merge.super_header.raw, _gen_raw_output(ctx) if hdr_merge.same_cols else _gen_csv_output(ctx)):
@@ -478,7 +479,7 @@ def _write_out(ctx :Context, hdr_merge :HeaderMergeResult):
     if ctx.opt.out_file and ctx.opt.out_file!='-':
         logger.log(NOTICE, 'Wrote output to %s (%s)', ctx.opt.out_file, 'raw' if hdr_merge.same_cols else 'csv')
 
-def load_files(opt :LoadOptions):
+def load_files(opt :LoadOptions) -> None:
     if Path(opt.database).exists():
         with closing(sqlite3.connect(opt.database)) as con:
             _load_files( Context(opt=opt, con=con, hdr=_load_db(con) ) )
@@ -492,7 +493,7 @@ def load_files(opt :LoadOptions):
                     con.execute('VACUUM INTO ?', (str(opt.database),))
                 logger.log(NOTICE, 'Wrote database to %s', opt.database)
 
-def merge_and_out(opt :MergeOptions):
+def merge_and_out(opt :MergeOptions) -> None:
     if opt.max_lsdelta<0:
         raise ValueError('max_lsdelta may not be negative')
     if opt.out_file and opt.out_file != '-' and Path(opt.out_file).exists():

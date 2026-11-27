@@ -25,6 +25,7 @@ along with this program. If not, see https://www.gnu.org/licenses/
 """
 import logging
 import argparse
+from typing import NoReturn
 from operator import itemgetter
 import igbpyutils.error
 from igbpyutils.file import autoglob
@@ -32,7 +33,7 @@ from toa5_merge import load_files, LoadOptions, merge_and_out, MergeOptions
 
 # spell-checker: ignore autoglob
 
-def _arg_parser():
+def _arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser('toa5_merge', description='TOA5 Merge Tool')
     parser.add_argument('-l', '--log-level', help="Logging level (default: INFO)",
         choices = [ str(s) for kv in sorted(logging.getLevelNamesMapping().items(), key=itemgetter(1)) for s in kv if kv[0]!='NOTSET' ],
@@ -62,7 +63,7 @@ def _arg_parser():
 
     return parser
 
-def main():
+def main() -> NoReturn:
     igbpyutils.error.init_handlers(repeat_msg=True)
     parser = _arg_parser()
     args = parser.parse_args()
@@ -79,8 +80,8 @@ def main():
             skip_seen     = args.skip_seen,
         ))
         case 'merge':
-            assert isinstance(args.skip_key, list)
             skip_keys :list[str] = args.skip_key
+            assert isinstance(skip_keys, list)
             if args.skip_keys_file:
                 with open(args.skip_keys_file, encoding='ASCII') as fh:
                     for line in fh:

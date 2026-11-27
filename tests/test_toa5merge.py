@@ -31,6 +31,7 @@ import logging
 import unittest
 from pathlib import Path
 from typing import override
+from collections.abc import Generator
 from tempfile import TemporaryDirectory
 from datetime import datetime, timedelta
 from contextlib import redirect_stdout, closing
@@ -46,7 +47,7 @@ class TestToa5Merge(unittest.TestCase):
     def setUp(self) -> None:
         self.maxDiff = None  # pylint: disable=invalid-name
 
-    def _check_basic_load_logs(self, lcm_output :list[str]):
+    def _check_basic_load_logs(self, lcm_output :list[str]) -> None:
         # Data_bad1.dat.gz: Headers end within quoted field on second line (also compressed for code coverage)
         one( s for s in lcm_output if re.match(r'^WARNING:toa5-merge:Skipping\b.+\bData_bad1\.dat\b.+due to\b.+\bToa5Error\b', s) )
         # Data_bad2.dat: Header ok, second data row ends within quoted field
@@ -57,7 +58,7 @@ class TestToa5Merge(unittest.TestCase):
             re.match(r'^WARNING:toa5-merge:Skipping bad row 6 in\b.+\bData_bad3\.dat\b.+\bdue to column count mismatch\b', s) )
         self.assertGreater( sum( 1 for s in lcm_output if re.match(r'DEBUG:toa5-merge:Skipping\b.+\bdue to filter$', s) ), 8 )
 
-    def _check_basic_merge_logs(self, lcm_output :list[str], *, key_skip_test :bool = False):
+    def _check_basic_merge_logs(self, lcm_output :list[str], *, key_skip_test :bool = False) -> None:
         one( s for s in lcm_output if s == 'INFO:toa5-merge:Found this one header that includes all 4 columns:\n'
             '"TOA5","MyLogger","CR1000X","1234","CR1000X.Std.06.00","CPU:MyProgram.CR1X","3457","Data"' )
         one( s for s in lcm_output if s == 'NOTICE:toa5-merge:The following environment line(s) will be lost in the merge:\n'
@@ -71,7 +72,7 @@ class TestToa5Merge(unittest.TestCase):
             r'\AINFO:toa5-merge:Marked 1 of \d+ total rows as duplicates \(1 with an lsdelta, 0 keys skipped\)\Z' )
         one( s for s in lcm_output if rx.match(s) )
 
-    def _check_db(self, dbf :Filename, *, dupes_checked :bool):
+    def _check_db(self, dbf :Filename, *, dupes_checked :bool) -> None:
         with closing(sqlite3.connect(dbf)) as con:
             self.assertEqual(con.execute('PRAGMA user_version').fetchone()[0], uut.SCHEMA_VERSION)
             self.assertEqual([ r[1] for r in con.execute('PRAGMA table_info(rows)') ], ['id','hid','raw_row','key','is_dupe'])
@@ -118,7 +119,7 @@ class TestToa5Merge(unittest.TestCase):
             ''').fetchall()
             self.assertEqual(got_r, exp_r)
 
-    def test_basic(self):
+    def test_basic(self) -> None:
         # Data[1-4].dat: normal data files (Data2.dat has an additional column)
         with TemporaryDirectory() as td:
             dbf = Path(td)/'x.sqlite3'
@@ -191,7 +192,7 @@ class TestToa5Merge(unittest.TestCase):
             with self.assertLogs(level=logging.DEBUG), self.assertRaises(NotImplementedError):
                 uut.load_files(uut.LoadOptions(database=dbf, paths=[PATH], table_name='Other'))
 
-    def test_db_bad_version(self):
+    def test_db_bad_version(self) -> None:
         with TemporaryDirectory() as td:
             dbf = Path(td)/'x.sqlite3'
             with closing(sqlite3.connect(dbf)) as con:
@@ -201,11 +202,11 @@ class TestToa5Merge(unittest.TestCase):
             with self.assertNoLogs(), self.assertRaises(sqlite3.DatabaseError):
                 uut.merge_and_out(uut.MergeOptions(database=dbf))
 
-    def test_batch_commit(self):
+    def test_batch_commit(self) -> None:
         with closing(sqlite3.connect(':memory:')) as con, self.assertLogs(level=logging.DEBUG) as lcm:
             ctx = uut.Context(opt=uut.LoadOptions(database=':memory:', paths=()), con=con, hdr={})
             uut._init_db(con)  # pylint: disable=protected-access  # pyright: ignore [reportPrivateUsage]
-            def file_gen(count :int):
+            def file_gen(count :int) -> Generator[str]:
                 yield '"TOA5","MyLogger","CR1000X","1234","CR1000X.Std.06.00","CPU:MyProgram.CR1X","3456","Data"\r\n'
                 yield '"TIMESTAMP","RECORD","BattV_Min"\r\n'
                 yield '"TS","RN","Volts"\r\n'
@@ -220,7 +221,7 @@ class TestToa5Merge(unittest.TestCase):
             self.assertEqual(con.execute('SELECT COUNT(*) FROM rows').fetchone()[0], 11000)
         one( s for s in lcm.output if s == 'INFO:toa5-merge:Loaded 9996 rows from [] so far...' )
 
-    def test_merge_errors(self):
+    def test_merge_errors(self) -> None:
         # One: Same timestamps, but second file has an additional column, which means the values from that column don't match
         # Two: Same timestamp but values outside of lsdelta
         # Three: Same timestamp but one of the values isn't a number so lsdelta fails
@@ -235,7 +236,7 @@ class TestToa5Merge(unittest.TestCase):
                 if tbl=='Four':
                     one( s for s in lcm.output if re.match(r'\AWARNING:toa5-merge:Here are the headers I have:$',s,re.M) )
 
-    def test_merge_error2(self):
+    def test_merge_error2(self) -> None:
         # Test a tricky case: Cols1.dat and Cols2.dat contain a row that looks identical, but actually isn't due to the column headers!
         with TemporaryDirectory() as td:
             dbf = Path(td)/'x.sqlite3'
@@ -249,7 +250,7 @@ class TestToa5Merge(unittest.TestCase):
             self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols1.dat"']\n''', str(ecm.exception) )
             self.assertIn( '''\n    row='"2025-11-04 15:30:00",1,12.34,12.34' in files ['"Cols2.dat"']\n''', str(ecm.exception) )
 
-    def test_load_csv_fail(self):
+    def test_load_csv_fail(self) -> None:
         # Quotes and line breaks aren't supported within TOA5 fields.
         for bad_field in ('x"y', 'x\ry', 'x\ny'):
             with self.subTest(bad_field=bad_field), TemporaryDirectory() as td:
@@ -264,7 +265,7 @@ class TestToa5Merge(unittest.TestCase):
                     uut.load_files(uut.LoadOptions(database=Path(td)/'x.sqlite3', paths=[input_file]))
                 self.assertTrue( str(ecm.exception).startswith('unsupported characters in field='), str(ecm.exception) )
 
-    def test_merge_multi_head(self):
+    def test_merge_multi_head(self) -> None:
         # Test for files that are numerically identical but the strings are not (e.g. scientific notation)
         # and where the merge results may be different based on the order in which they are merged.
         # (I consider this acceptable because such cases should be rare.)
@@ -283,7 +284,7 @@ class TestToa5Merge(unittest.TestCase):
                 one( s for s in lcm.output
                     if re.match(r'\AINFO:toa5-merge:Marked 2 of \d+ total rows as duplicates \(1 with an lsdelta, 0 keys skipped\)\Z', s) )
 
-    def test_diff_env_lines(self):
+    def test_diff_env_lines(self) -> None:
         # Same[12].dat: Files that are identical *except* for the environment line
         # The same rows with the same column headers should be considered the same.
         with TemporaryDirectory() as td:

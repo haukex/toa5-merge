@@ -7,5 +7,6 @@ coverage.xml
 htmlcov/
 /dist/
 /*.egg-info/
+/.tmp_pyright_config-*.json
 /build/
 /*.spec

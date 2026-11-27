@@ -24,8 +24,8 @@ along with this program. If not, see https://www.gnu.org/licenses/
 """
 from collections import deque
 from collections.abc import Generator, Iterable, Hashable, Collection
+from typing import Literal, TypeVar, TypedDict, Unpack
 from itertools import tee, islice
-from typing import TypeVar
 import csv
 import _csv  # just for types
 
@@ -33,7 +33,17 @@ import _csv  # just for types
 
 # borrowed from csv module's definitions:
 _DialectLike = str | _csv.Dialect | csv.Dialect | type[_csv.Dialect | csv.Dialect]
-def dual_csv_reader(fh :Iterable[str], /, dialect :_DialectLike = "excel", **fmt_params
+class _CsvFormatParams(TypedDict, total=False):
+    delimiter :str
+    quotechar :str|None
+    escapechar :str|None
+    doublequote :bool
+    skipinitialspace :bool
+    lineterminator :str
+    quoting :Literal[0, 1, 2, 3, 4, 5]
+    strict :bool
+
+def dual_csv_reader(fh :Iterable[str], /, dialect :_DialectLike = 'excel', **fmt_params :Unpack[_CsvFormatParams]
                     ) -> tuple[Generator[list[str], None, None], Generator[str, None, None]]:
     """Returns two generators: the first is the standard ``csv.reader`` output,
     the second yields the raw data from the input file that produced the parsed output.
@@ -71,6 +81,7 @@ def dual_csv_reader(fh :Iterable[str], /, dialect :_DialectLike = "excel", **fmt
 
 _T = TypeVar('_T', bound=Hashable)
 def find_superset(col_sets :Collection[Collection[_T]]) -> frozenset[_T]|None:
-    union = set().union(*col_sets)
+    union :set[_T] = set()
+    union.update(*col_sets)
     superset = next((s for s in col_sets if s == union), None)
     return None if superset is None else frozenset(superset)

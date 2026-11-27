@@ -28,8 +28,8 @@
         "markdown"
     ],
     "cSpell.ignoreWords": [
-        "venv",
         "igbpyutils",
+        "venv",
         "lsdelta",
         "unzipwalk"
     ],

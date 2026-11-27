@@ -28,7 +28,7 @@ import toa5_merge.utils as uut
 
 class TestUtils(unittest.TestCase):
 
-    def test_dual_csv_reader(self):
+    def test_dual_csv_reader(self) -> None:
         f = io.StringIO('a,b,c\r\n"A\nA",B," C "\n"D,D",,F F', newline='')
         csv_it, raw_it = uut.dual_csv_reader(f, strict=True)
         self.assertEqual( next(csv_it), ["a","b","c"] )
@@ -50,7 +50,7 @@ class TestUtils(unittest.TestCase):
         with self.assertRaises(IndexError):
             next(csv_it)
 
-    def test_find_superset(self):
+    def test_find_superset(self) -> None:
         self.assertEqual( uut.find_superset([
             {1,2,3,4,5,    8,9},
             {1,2,3,4,5,6,7,8,9},
@@ -103,4 +103,4 @@ class TestUtils(unittest.TestCase):
         self.assertEqual( uut.find_superset([ {0,1}, {0} ]), {0,1} )
         self.assertEqual( uut.find_superset([ {0,1,2} ]), {0,1,2} )
         self.assertEqual( uut.find_superset([ {0,1,2}, {0,1,2} ]), {0,1,2} )
-        self.assertIsNone( uut.find_superset([]) )
+        self.assertIsNone( uut.find_superset(list[set[int]]()) )

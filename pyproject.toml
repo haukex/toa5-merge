@@ -1,15 +1,18 @@
 # This file is based on https://github.com/haukex/my-py-template/blob/main/pyproject.toml
 
+[build-system]
+requires = ["setuptools>=77.0.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "toa5-merge"
 description = "TOA5 Merge Tool"
-version = "0.3.0"
+version = "0.4.0"
 authors = [ { name="Hauke D", email="haukex@zero-g.net" } ]
 # https://spdx.org/licenses/
 license = "GPL-3.0-or-later"
 readme = "README.md"
-requires-python = "3.14"
-dynamic = ["dependencies"]
+requires-python = ">=3.14"
 # https://pypi.org/classifiers/
 classifiers = [
     "Programming Language :: Python :: 3.14",
@@ -17,8 +20,34 @@ classifiers = [
     "Development Status :: 4 - Beta",
 ]
 
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
+dependencies = [
+    "igbpyutils == 1.0.2",
+    "unzipwalk[7z] == 2.0.0",
+    "lsdelta == 0.9.1",
+    "PyTOA5 == 1.0.1",
+    "more-itertools == 11.2.1",
+]
+[dependency-groups]
+dev = [
+    "setuptools >= 77.0.0",
+    "igbpyutils == 1.0.2",
+    "simple-perms == 1.0.0 ; sys_platform != 'win32'",
+    "coverage[toml] == 7.17.5",
+    "coverage-simple-excludes == 1.1.1",
+    "pylint == 4.1.4",
+    "mypy == 2.4.1",
+    "pyright == 1.1.414",
+    "flake8 == 7.5.0",
+    "Flake8-pyproject == 1.2.4",
+    "build == 1.6.1 ; sys_platform == 'linux'",
+    "twine == 7.0.0 ; sys_platform == 'linux'",
+    "pyinstaller == 6.22.3",
+]
+[project.optional-dependencies]
+# "tag" = ["package>=1.2.3"]
+
+[tool.setuptools]
+packages = ["toa5_merge"]
 
 [project.scripts]
 toa5-merge = "toa5_merge.__main__:main"
@@ -37,25 +66,16 @@ toa5-merge = "toa5_merge.__main__:main"
 # mypy:     ``# type: ignore[setting-name]``
 # coverage: ``# pragma: no cover``, ``# pragma: no branch``, and https://pypi.org/project/coverage-simple-excludes/
 
-# spell-checker: ignore setuptools pylint noqa mypy rcfile pyproject inlinevar overgeneral argparse booleaness
+# spell-checker: ignore setuptools pylint noqa mypy rcfile pyproject inlinevar overgeneral argparse booleaness pyinstaller
 
 # ##### ##### ##### ##### ##### https://github.com/microsoft/pyright/blob/main/docs/configuration.md ##### ##### ##### ##### #####
 
 [tool.pyright]
 typeCheckingMode = "strict"
-# for stricter type checking, comment out all of these (except reportUnnecessaryTypeIgnoreComment):
-reportMissingTypeStubs = "none"
-reportUnknownMemberType = "none"
-reportUnknownArgumentType = "none"
-reportUnknownVariableType = "none"
-reportUnknownParameterType = "none"
-reportUnknownLambdaType = "none"
-reportMissingParameterType = "none"
-reportMissingTypeArgument = "none"
-reportGeneralTypeIssues = "none"  # too bad there isn't more fine-grained control than this
-reportUnnecessaryTypeIgnoreComment = "none"  # this flags too many comments; we use mypy's `warn_unused_ignores` instead
 reportImportCycles = "error"
 reportPropertyTypeMismatch = "warning"
+# The following can flag too many comments; note mypy's `warn_unused_ignores` is also enabled and that can be used instead
+# reportUnnecessaryTypeIgnoreComment = "none"
 
 # ##### ##### ##### ##### ##### https://coverage.readthedocs.io/en/latest/config.html ##### ##### ##### ##### #####
 
@@ -110,10 +130,9 @@ max-line-length = 150
 enable_error_code = [ "ignore-without-code" ]
 ignore_missing_imports = true
 check_untyped_defs = true
-# for stricter type checking, uncomment these three:
-# disallow_incomplete_defs = true  # These would require a lot of `-> None` and such, but have
-# disallow_untyped_defs = true     # the advantage of giving mypy more knowledge of types
-# disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_return_any = true

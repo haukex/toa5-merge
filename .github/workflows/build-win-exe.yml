@@ -18,10 +18,7 @@ jobs:
           python-version: 3.14
           # https://github.com/actions/setup-python#caching-packages-dependencies
           cache: pip
-          # remember to keep in sync with Makefile:
-          cache-dependency-path: |
-            requirements.txt
-            dev/requirements.txt
+          cache-dependency-path: pyproject.toml
       - name: Install dependencies
         run: make installdeps
       - name: Tests and Coverage
@@ -32,3 +29,4 @@ jobs:
         with:
           name: toa5-merge-win-exe
           path: dist/toa5-merge.exe
+# spell: ignore installdeps pyproject
