@@ -55,6 +55,9 @@ def _arg_parser():
     parser_merge = subparsers.add_parser('merge', help='Output merged TOA5 from database')
     parser_merge.add_argument('--max-lsdelta', help="Maximum Delta in Least Significant digits (default: 0)", type=int, default=0)
     parser_merge.add_argument('--drop-dupes', help="Drop duplicates that are within lsdelta of each other", action='store_true')
+    parser_merge.add_argument('-s', '--skip-key', help="A key to skip; supply option multiple times for multiple keys",
+                              action="append", default=[])
+    parser_merge.add_argument('--skip-keys-file', help="A file from which to read keys to skip, one key per line")
     parser_merge.add_argument('-o', '--out-file', help="Output filename (default: STDOUT)")
 
     return parser
@@ -75,12 +78,21 @@ def main():
             ignore_size   = args.ignore_size,
             skip_seen     = args.skip_seen,
         ))
-        case 'merge': merge_and_out(MergeOptions(
-            database      = args.database,
-            max_lsdelta   = args.max_lsdelta,
-            drop_dupes    = args.drop_dupes,
-            out_file      = args.out_file,
-        ))
+        case 'merge':
+            assert isinstance(args.skip_key, list)
+            skip_keys :list[str] = args.skip_key
+            if args.skip_keys_file:
+                with open(args.skip_keys_file, encoding='ASCII') as fh:
+                    for line in fh:
+                        if line.strip() and not line.strip().startswith('#'):
+                            skip_keys.append(line)
+            merge_and_out(MergeOptions(
+                database      = args.database,
+                max_lsdelta   = args.max_lsdelta,
+                drop_dupes    = args.drop_dupes,
+                out_file      = args.out_file,
+                skip_keys     = frozenset(skip_keys)
+            ))
         case _: parser.error('bad command')  # for linter
     parser.exit(0)
 

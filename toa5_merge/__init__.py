@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """
 TOA5 Merge Tool
 ===============
@@ -73,6 +74,7 @@ class MergeOptions(NamedTuple):
     max_lsdelta :int = 0
     drop_dupes :bool = False
     out_file :Filename = '-'
+    skip_keys :frozenset[str] = frozenset()
 
 class Header(NamedTuple):
     hid :int
@@ -288,6 +290,7 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
         total_rows = ctx.con.execute('UPDATE rows SET is_dupe=FALSE').rowcount
         marked_rows = 0
         with_lsdelta = 0
+        skipped_keys = 0
         for ts_key,dup_key_rows in groupby(sel_cur, key=itemgetter(0)):
             assert isinstance(ts_key, str)
             if ts_key in seen_keys:  # this is only a double-check for me to catch potential errors in my SQL
@@ -298,6 +301,9 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
                 assert isinstance(hid, int) and isinstance(rid, int) and isinstance(raw_row, str)
                 rows.append(DupeRow(rid=rid, hdr=ctx.hdr[hid], raw_row=raw_row, files=[ f[4] for f in rest ]))
             assert len(rows)>1, rows
+            if ts_key in ctx.opt.skip_keys:
+                skipped_keys += 1
+                continue
             r0 = rows[0]
             # Environment lines don't change a row's meaning when its raw data and column headers are identical
             if all( r.raw_row==r0.raw_row and r.hdr.toa5.columns==r0.hdr.toa5.columns for r in rows[1:] ):
@@ -305,6 +311,7 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
             err_msg = ( f"Found a row with the same timestamp but different values (max_lsdelta={ctx.opt.max_lsdelta}):\n"
                 f"key={ts_key!r} is shared by:\n" + '\n'.join( f"    row={r.raw_row!r} in files {r.files!r}" for r in rows ) )
             if not ctx.opt.max_lsdelta:
+                # NOTE this still fails on e.g. "1.23E-05" vs. "1.23E-005"
                 raise MergeError(err_msg + '  max_lsdelta not set, so I expected them to be identical')
             # user specified max_lsdelta, so compare the rows using that
             assert r0.hdr.col_map, r0.hdr
@@ -330,7 +337,8 @@ def _check_dupe_rows(ctx :Context):  # pylint: disable=too-many-locals
                     with_lsdelta += 1
             # Since we haven't died by now, we must have determined that these rows are close enough.
             marked_rows += ctx.con.executemany('UPDATE rows SET is_dupe=TRUE WHERE id=?', ((r.rid,) for r in rows[1:])).rowcount
-        logger.info('Marked %d of %d total rows as duplicates (%d with an lsdelta)', marked_rows, total_rows, with_lsdelta)
+        logger.info('Marked %d of %d total rows as duplicates (%d with an lsdelta, %d keys skipped)',
+                    marked_rows, total_rows, with_lsdelta, skipped_keys)
 
 class HeaderMergeResult(NamedTuple):
     """For use by :func:`_prepare_header_merge`"""
@@ -382,9 +390,10 @@ def _gen_raw_output(ctx :Context) -> Generator[str]:
             SELECT MIN(key) AS key, raw_row FROM rows
                 {'WHERE is_dupe=FALSE' if ctx.opt.drop_dupes else ''}
                 GROUP BY raw_row ORDER BY key  ''')) as sel_cur:
-        for _,raw_row in sel_cur:
-            assert isinstance(raw_row, str)
-            yield raw_row
+        for key,raw_row in sel_cur:
+            assert isinstance(key, str) and isinstance(raw_row, str)
+            if key not in ctx.opt.skip_keys:
+                yield raw_row
 
 NUMERIC_RE = re.compile(r'\A(?:[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[Ee][+-]?[0-9]+)?|INF)|NAN)\Z')
 QUOTE_RE = re.compile(r'\A(?:[+-]?INF|NAN)\Z')
@@ -403,6 +412,8 @@ def _gen_csv_output(ctx :Context) -> Generator[str]:
         with closing(ctx.con.execute(f"SELECT key, hid, raw_row FROM rows {'WHERE is_dupe=FALSE' if opt.drop_dupes else ''}")) as sel_cur:
             for key,hid,raw_row in sel_cur:
                 assert isinstance(key, str) and isinstance(hid, int) and isinstance(raw_row, str)
+                if key in opt.skip_keys:
+                    continue
                 row = _parse_raw_row(raw_row)
                 r_row = [ None if c is None else row[c] for c in ctx.hdr[hid].col_map ]
                 for i, field in enumerate(r_row):

@@ -1,6 +1,11 @@
 Changelog for toa5-merge
 ========================
 
+0.4.0 - Fri, Nov 27, 2026
+-------------------------
+
+- Added `--skip-key` and `--skip-keys-file`
+
 0.3.0 - Sat, Aug 22 2026
 ------------------------
 

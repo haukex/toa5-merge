@@ -57,7 +57,7 @@ class TestToa5Merge(unittest.TestCase):
             re.match(r'^WARNING:toa5-merge:Skipping bad row 6 in\b.+\bData_bad3\.dat\b.+\bdue to column count mismatch\b', s) )
         self.assertGreater( sum( 1 for s in lcm_output if re.match(r'DEBUG:toa5-merge:Skipping\b.+\bdue to filter$', s) ), 8 )
 
-    def _check_basic_merge_logs(self, lcm_output :list[str]):
+    def _check_basic_merge_logs(self, lcm_output :list[str], *, key_skip_test :bool = False):
         one( s for s in lcm_output if s == 'INFO:toa5-merge:Found this one header that includes all 4 columns:\n'
             '"TOA5","MyLogger","CR1000X","1234","CR1000X.Std.06.00","CPU:MyProgram.CR1X","3457","Data"' )
         one( s for s in lcm_output if s == 'NOTICE:toa5-merge:The following environment line(s) will be lost in the merge:\n'
@@ -65,7 +65,11 @@ class TestToa5Merge(unittest.TestCase):
             '"TOA5","MyLogger","CR1000X","1234","CR1000X.Std.06.00","CPU:MyProgram.CR1X","3458","Data"')
         list(strictly_n(( s for s in lcm_output if re.match(r'\ADEBUG:toa5-merge:Column map for hid \d+: \[0, 1, 2, None\]\Z',s) ), 2 ))
         one( s for s in lcm_output if re.match(r'\ADEBUG:toa5-merge:Column map for hid \d+: \[0, 1, 2, 3\]\Z',s) )
-        one( s for s in lcm_output if re.match(r'\AINFO:toa5-merge:Marked 1 of \d+ total rows as duplicates \(1 with an lsdelta\)\Z', s) )
+        rx = re.compile(
+            r'\AINFO:toa5-merge:Marked 0 of \d+ total rows as duplicates \(0 with an lsdelta, 1 keys skipped\)\Z'
+            if key_skip_test else
+            r'\AINFO:toa5-merge:Marked 1 of \d+ total rows as duplicates \(1 with an lsdelta, 0 keys skipped\)\Z' )
+        one( s for s in lcm_output if rx.match(s) )
 
     def _check_db(self, dbf :Filename, *, dupes_checked :bool):
         with closing(sqlite3.connect(dbf)) as con:
@@ -147,6 +151,19 @@ class TestToa5Merge(unittest.TestCase):
             self.assertEqual( out.getvalue().replace('\r\n','\n').replace('\r','\n').rstrip('\n'),
                             (PATH/'exp_out_Data.txt').read_text(encoding='ASCII').rstrip('\n') )
             self._check_db(dbf, dupes_checked=True)
+
+            # test skip_keys in _gen_csv_output
+            with redirect_stdout(io.StringIO()) as out, self.assertLogs(level=logging.DEBUG) as lcm:
+                uut.merge_and_out(uut.MergeOptions(database=dbf, max_lsdelta=1,
+                    skip_keys=frozenset([ "2025-11-04 15:40:00", "2025-11-04 16:15:00" ])))
+            self._check_basic_merge_logs(lcm.output, key_skip_test=True)
+            self.assertEqual( out.getvalue().splitlines()[4:], [
+                '"2025-11-04 15:30:00",1,13.83,',
+                '"2025-11-04 15:35:00",2,13.80,12.98',
+                '"2025-11-04 15:45:00",4,13.56,',
+                '"2025-11-04 15:50:00",3,13.76,12.99',
+                '"2025-11-04 16:00:00",5,13.41,',
+                '"2025-11-04 16:30:00",7,"NAN",' ] )
 
             # merge with drop_dupes and out_file
             out_f = Path(td)/'output.txt'
@@ -263,7 +280,8 @@ class TestToa5Merge(unittest.TestCase):
                     [ (PATH/f).read_text(encoding='ASCII').rstrip('\n') for f in exp_f ] )
                 one( s for s in lcm.output if
                     re.match(r'\AINFO:toa5-merge:Found more than one header that includes all 3 columns, arbitrarily using the last one:$',s,re.M) )
-                one( s for s in lcm.output if re.match(r'\AINFO:toa5-merge:Marked 2 of \d+ total rows as duplicates \(1 with an lsdelta\)\Z', s) )
+                one( s for s in lcm.output
+                    if re.match(r'\AINFO:toa5-merge:Marked 2 of \d+ total rows as duplicates \(1 with an lsdelta, 0 keys skipped\)\Z', s) )
 
     def test_diff_env_lines(self):
         # Same[12].dat: Files that are identical *except* for the environment line
@@ -276,4 +294,11 @@ class TestToa5Merge(unittest.TestCase):
                 uut.merge_and_out(uut.MergeOptions(database=dbf))
             self.assertIn( out.getvalue().replace('\r\n','\n').replace('\r','\n').rstrip('\n'),
                 [ (PATH/f).read_text(encoding='ASCII').rstrip('\n') for f in ('Same1.dat','Same2.dat') ] )
-            one( s for s in lcm.output if s == 'INFO:toa5-merge:Marked 0 of 8 total rows as duplicates (0 with an lsdelta)' )
+            one( s for s in lcm.output if s == 'INFO:toa5-merge:Marked 0 of 8 total rows as duplicates (0 with an lsdelta, 0 keys skipped)' )
+
+            # test skip_keys in _gen_raw_output
+            with redirect_stdout(io.StringIO()) as out, self.assertLogs(level=logging.DEBUG) as lcm:
+                uut.merge_and_out(uut.MergeOptions(database=dbf, skip_keys=frozenset(["2025-11-04 15:40:00"])))
+            self.assertEqual( out.getvalue().splitlines()[4:], [
+                '"2025-11-04 15:30:00",1,13.83', '"2025-11-04 15:35:00",2,13.80', '"2025-11-04 15:45:00",4,13.56' ] )
+            one( s for s in lcm.output if s == 'INFO:toa5-merge:Marked 0 of 8 total rows as duplicates (0 with an lsdelta, 1 keys skipped)' )
